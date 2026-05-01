@@ -1,0 +1,30 @@
+{
+  "chapters": {
+    "31": {
+      "status": "completed",
+      "timestamp": "2026-05-01 15:05:33"
+    },
+    "32": {
+      "status": "completed",
+      "timestamp": "2026-05-01 15:05:33"
+    },
+    "33": {
+      "status": "completed",
+      "timestamp": "2026-05-01 15:05:38"
+    },
+    "34": {
+      "status": "completed",
+      "timestamp": "2026-05-01 15:05:38"
+    },
+    "35": {
+      "status": "completed",
+      "timestamp": "2026-05-01 15:05:38"
+    },
+    "36": {
+      "status": "completed",
+      "timestamp": "2026-05-01 15:05:41"
+    }
+  },
+  "last_chapter": 36,
+  "last_update": "2026-05-01 15:05:41"
+}

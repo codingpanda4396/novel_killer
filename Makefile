@@ -1,4 +1,4 @@
-.PHONY: help check status init-config new-chapter context-pack run-stage run-full
+.PHONY: help check status init-config new-chapter context-pack run-stage run-full run-batch
 
 help:
 	@python3 scripts/novel_workflow.py --help
@@ -39,3 +39,10 @@ run-full:
 		exit 1; \
 	fi
 	@python3 scripts/novel_workflow.py run-full --number "$(N)" --title "$(TITLE)"
+
+run-batch:
+	@if [ -z "$(START)" ] || [ -z "$(COUNT)" ]; then \
+		echo 'Usage: make run-batch START=31 COUNT=10 [CHECK=1] [RESUME=1] [DRY_RUN=1]'; \
+		exit 1; \
+	fi
+	@python3 scripts/novel_workflow.py run-batch --start "$(START)" --count "$(COUNT)" $(if $(CHECK),--check) $(if $(RESUME),--resume) $(if $(DRY_RUN),--dry-run)

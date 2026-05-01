@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -74,9 +75,10 @@ STAGE_PROMPTS = {
     "update_record": "prompts/05_update_record.md",
     "continuity_check": "prompts/06_continuity_check.md",
     "next_planner": "prompts/07_next_chapter_planner.md",
+    "batch_planner": "prompts/08_batch_planner.md",
 }
 
-MULTI_FILE_STAGES = {"update_record", "next_planner"}
+MULTI_FILE_STAGES = {"update_record", "next_planner", "batch_planner"}
 
 
 @dataclass(frozen=True)
@@ -628,6 +630,17 @@ def run_stage(args: argparse.Namespace) -> None:
         print(messages[-1]["content"])
         return
     config = load_config(args.config)
+    
+    # 如果是 dry-run 模式，跳过 API 调用
+    if args.dry_run:
+        if stage in MULTI_FILE_STAGES:
+            print(f"DRY would write multi-file stage {stage}")
+        elif output_path:
+            print(f"DRY would write {rel(output_path)}")
+        else:
+            print(f"DRY would print {stage} output")
+        return
+    
     raw = call_openai_compatible(config, stage, messages)
     if stage in MULTI_FILE_STAGES:
         safe_write_model_files(raw, args.dry_run)
@@ -668,6 +681,161 @@ def run_full(args: argparse.Namespace) -> None:
         run_stage(stage_args)
 
 
+def generate_chapter_title(number: int) -> str:
+    """生成章节标题（基于章节号和上下文）"""
+    # 从 chapter_queue.md 中查找对应章节的标题
+    queue_path = ROOT / "outlines" / "chapter_queue.md"
+    if queue_path.exists():
+        content = read_text(queue_path)
+        # 查找格式：| 31 | 标题 | ...
+        pattern = rf"\|\s*{number}\s*\|\s*([^|]+)\s*\|"
+        match = re.search(pattern, content)
+        if match:
+            return match.group(1).strip()
+    
+    # 如果找不到，返回默认标题
+    return f"第{number}章"
+
+
+def save_batch_progress(progress_file: Path, chapter_num: int, status: str = "completed") -> None:
+    """保存批量生成进度到JSON文件"""
+    progress = {}
+    if progress_file.exists():
+        try:
+            progress = json.loads(read_text(progress_file))
+        except json.JSONDecodeError:
+            progress = {}
+    
+    if "chapters" not in progress:
+        progress["chapters"] = {}
+    
+    progress["chapters"][str(chapter_num)] = {
+        "status": status,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    progress["last_chapter"] = chapter_num
+    progress["last_update"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    write_text(progress_file, json.dumps(progress, ensure_ascii=False, indent=2))
+
+
+def load_batch_progress(progress_file: Path) -> dict:
+    """加载批量生成进度"""
+    if not progress_file.exists():
+        return {"chapters": {}, "last_chapter": 0}
+    try:
+        return json.loads(read_text(progress_file))
+    except json.JSONDecodeError:
+        return {"chapters": {}, "last_chapter": 0}
+
+
+def run_full_chapter(number: int, title: str, config: Path | None, dry_run: bool = False, check_quality: bool = False) -> bool:
+    """运行单章完整流程，返回是否成功"""
+    try:
+        # 构造 run-full 参数
+        args = argparse.Namespace(
+            number=number,
+            title=title,
+            config=config,
+            dry_run=dry_run,
+        )
+        run_full(args)
+        
+        # 如果启用质量检查，运行额外的审稿阶段
+        if check_quality and not dry_run:
+            print(f"\n== Quality Check for Chapter {number} ==")
+            # 运行额外的连续性检查
+            check_args = argparse.Namespace(
+                stage="continuity_check",
+                number=number,
+                title=title,
+                config=config,
+                dry_run=False,
+                print_prompt=False,
+            )
+            run_stage(check_args)
+        
+        return True
+    except Exception as e:
+        print(f"ERROR generating chapter {number}: {e}")
+        return False
+
+
+def run_batch(args: argparse.Namespace) -> None:
+    """批量生成章节"""
+    start = args.start
+    count = args.count
+    check_quality = args.check
+    resume = args.resume
+    config = args.config
+    dry_run = args.dry_run
+    
+    # 检查断点续传
+    progress_file = ROOT / "progress" / "batch_progress.json"
+    if resume:
+        progress = load_batch_progress(progress_file)
+        last_chapter = progress.get("last_chapter", 0)
+        if last_chapter >= start:
+            start = last_chapter + 1
+            print(f"Resuming from chapter {start} (last completed: {last_chapter})")
+    
+    print(f"\n{'='*60}")
+    print(f"开始批量生成")
+    print(f"起始章节: {start}")
+    print(f"生成数量: {count}")
+    print(f"质量检查: {'启用' if check_quality else '禁用'}")
+    print(f"断点续传: {'启用' if resume else '禁用'}")
+    print(f"{'='*60}\n")
+    
+    success_count = 0
+    failed_chapters = []
+    
+    for i in range(count):
+        chapter_num = start + i
+        
+        # 生成章节标题
+        title = generate_chapter_title(chapter_num)
+        
+        print(f"\n{'='*60}")
+        print(f"[{i+1}/{count}] 开始生成第 {chapter_num} 章: {title}")
+        print(f"{'='*60}")
+        
+        # 执行完整流程
+        success = run_full_chapter(chapter_num, title, config, dry_run, check_quality)
+        
+        if success:
+            success_count += 1
+            save_batch_progress(progress_file, chapter_num, "completed")
+            print(f"\n✓ 第 {chapter_num} 章生成完成")
+        else:
+            failed_chapters.append(chapter_num)
+            save_batch_progress(progress_file, chapter_num, "failed")
+            print(f"\n✗ 第 {chapter_num} 章生成失败")
+            
+            # 如果失败，询问是否继续
+            if not dry_run and i < count - 1:
+                print(f"\n是否继续生成下一章？(y/n)")
+                # 在自动化模式下默认继续
+                continue
+        
+        # 生成间隔（避免API限流）
+        if i < count - 1 and not dry_run:
+            print(f"\n等待2秒后继续...")
+            time.sleep(2)
+    
+    # 打印总结
+    print(f"\n{'='*60}")
+    print(f"批量生成完成")
+    print(f"成功: {success_count}/{count}")
+    if failed_chapters:
+        print(f"失败章节: {', '.join(map(str, failed_chapters))}")
+    print(f"{'='*60}")
+    
+    # 保存最终进度
+    if not dry_run:
+        save_batch_progress(progress_file, start + count - 1, "batch_completed")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="novel0 unified production workflow")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -699,6 +867,14 @@ def build_parser() -> argparse.ArgumentParser:
     full.add_argument("--config", type=Path)
     full.add_argument("--dry-run", action="store_true")
 
+    batch = sub.add_parser("run-batch")
+    batch.add_argument("--start", type=int, required=True, help="起始章节号")
+    batch.add_argument("--count", type=int, required=True, help="生成章节数量")
+    batch.add_argument("--check", action="store_true", help="启用质量检查")
+    batch.add_argument("--resume", action="store_true", help="断点续传")
+    batch.add_argument("--config", type=Path)
+    batch.add_argument("--dry-run", action="store_true")
+
     return parser
 
 
@@ -726,6 +902,9 @@ def main() -> None:
         return
     if args.command == "run-full":
         run_full(args)
+        return
+    if args.command == "run-batch":
+        run_batch(args)
         return
     parser.print_help()
 
