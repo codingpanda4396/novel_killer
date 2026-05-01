@@ -548,11 +548,21 @@ def build_messages(stage: str, number: int | None, title: str | None, output_pat
 def call_openai_compatible(config: dict[str, Any], stage: str, messages: list[dict[str, str]]) -> str:
     provider = provider_settings(config)
     settings = stage_settings(config, stage)
-    api_key = os.environ.get(provider["api_key_env"])
+    
+    # Check for stage-specific provider override
+    stage_providers = config.get("stage_providers", {})
+    if stage in stage_providers:
+        stage_provider = stage_providers[stage]
+        base_url = stage_provider.get("base_url", provider["base_url"]).rstrip("/")
+        api_key_env = stage_provider.get("api_key_env", provider["api_key_env"])
+    else:
+        base_url = provider["base_url"].rstrip("/")
+        api_key_env = provider["api_key_env"]
+    
+    api_key = os.environ.get(api_key_env)
     if not api_key:
-        die(f"environment variable not set: {provider['api_key_env']}")
+        die(f"environment variable not set: {api_key_env}")
 
-    base_url = provider["base_url"].rstrip("/")
     url = f"{base_url}/chat/completions"
     payload = {
         "model": settings["model"],

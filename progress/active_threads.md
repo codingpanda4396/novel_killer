@@ -10,6 +10,10 @@
 | --- | --- | --- | --- | --- | --- |
 | 前8万字终局化修复 | 系统线 | `progress/system_audit.md` | 待处理 | 明确哪些事件降级为阶段性胜利 | 高 |
 | 前文连续性保护 | 系统线 | `chapters/01-30`、`progress/chapter_summary.md` | 必须持续执行 | 每次新章生产前读取 `progress/continuity_index.md`，确认前文事实不可被破坏 | 高 |
+| 第31-37章未生产 | 系统线 | `outlines/chapter_queue.md` | 阻塞 | 按顺序完成第31-37章生产 | 高 |
+| 第1-30章修复版正文未确认 | 系统线 | `progress/timeline.md` | 阻塞 | 确认第1-30章正文是否为修复版 | 高 |
+| 人物状态冲突 | 系统线 | `progress/current_context.md`、`progress/chapter_summary.md` | 阻塞 | 创建`progress/character_state.md`，统一人物状态 | 高 |
+| 能力阶段冲突 | 系统线 | `bible/02_power_system.md` | 阻塞 | 更新规则感知能力的定义和边界 | 高 |
 
 ## 更新规则
 
