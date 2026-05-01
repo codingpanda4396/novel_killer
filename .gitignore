@@ -1,0 +1,7 @@
+# Local model/API configuration.
+config/workflow.local.json
+
+# Runtime scratch files.
+.DS_Store
+*.tmp
+__pycache__/
