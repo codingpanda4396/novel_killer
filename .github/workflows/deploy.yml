@@ -17,49 +17,53 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         command_timeout: 10m
         script: |
-          set -e
+          set -ex
           echo "=== Deploy Start ==="
           
-          APP_DIR="/opt/novelOps/novel_killer"
-          
           # 确保 novelops 用户存在
-          id -u novelops || sudo useradd -m -s /bin/bash novelops
+          id novelops || sudo useradd -m -s /bin/bash novelops
           
-          # 首次部署：克隆代码
-          if [ ! -d "$APP_DIR/.git" ]; then
-            echo "=== Clone Repo ==="
-            sudo mkdir -p /opt/novelOps
-            sudo chown novelops:novelops /opt/novelOps
-            sudo -u novelops git clone https://github.com/codingpanda4396/novel_killer.git $APP_DIR
-          fi
+          # 确保目录存在并属于 novelops
+          sudo mkdir -p /opt/novelOps
+          sudo chown novelops:novelops /opt/novelOps
           
-          echo "=== Pull Code ==="
-          cd $APP_DIR
-          sudo -u novelops git pull origin main || sudo -u novelops git pull origin master
+          # 以 novelops 用户执行所有操作
+          sudo -u novelops bash -c '
+            set -ex
+            APP_DIR="/opt/novelOps/novel_killer"
+            
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "=== 克隆代码 ==="
+              cd /opt/novelOps
+              git clone https://github.com/codingpanda4396/novel_killer.git
+              cd novel_killer
+            else
+              echo "=== 更新代码 ==="
+              cd $APP_DIR
+              git pull origin main || git pull origin master
+            fi
+            
+            echo "=== 安装依赖 ==="
+            if [ ! -d ".venv" ]; then
+              python3 -m venv .venv
+            fi
+            source .venv/bin/activate
+            pip install -r requirements.txt
+            
+            echo "=== 初始化 ==="
+            python -m novelops.cli index || true
+            
+            echo "=== 当前目录内容 ==="
+            ls -la
+          '
           
-          echo "=== Setup Venv ==="
-          if [ ! -d "$APP_DIR/.venv" ]; then
-            sudo -u novelops python3 -m venv $APP_DIR/.venv
-          fi
-          
-          echo "=== Install Deps ==="
-          sudo -u novelops bash -c "cd $APP_DIR && source .venv/bin/activate && pip install -r requirements.txt"
-          
-          echo "=== Init Index ==="
-          sudo -u novelops bash -c "cd $APP_DIR && source .venv/bin/activate && python -m novelops.cli index || true"
-          
-          echo "=== Setup Service ==="
-          sudo cp $APP_DIR/deploy/novelops.service /etc/systemd/system/novelops.service
-          sudo chmod 644 /etc/systemd/system/novelops.service
+          echo "=== 配置服务 ==="
+          sudo cp /opt/novelOps/novel_killer/deploy/novelops.service /etc/systemd/system/
           sudo systemctl daemon-reload
           sudo systemctl enable novelops
           sudo systemctl restart novelops
-          
-          echo "=== Reload Nginx ==="
           sudo systemctl reload nginx || true
           
-          echo "=== Status ==="
+          echo "=== 服务状态 ==="
           sudo systemctl status novelops --no-pager || true
-          ls -la $APP_DIR | head -20
-          
-          echo "=== Deploy Done ==="
+          echo "=== 部署完成 ==="
