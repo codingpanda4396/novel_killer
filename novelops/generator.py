@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .config import write_json
+from .config import load_project_path, write_json
+from .continuity import update_continuity_after_chapter
 from .llm import LLMClient, load_model_config
 from .planner import plan_next
 from .reviewer import review_text
@@ -24,13 +25,44 @@ def _prompt_context(plan: Any, intent: Any, chain: Any) -> str:
 
 
 def _project_summary(project_path: Path, limit: int = 3000) -> str:
+    """读取项目配置指定的上下文文件，构建项目摘要"""
     parts: list[str] = []
-    for name in ["bible/00_story_bible.md", "state/timeline.md", "state/current_context.md"]:
-        path = project_path / name
-        if path.is_file():
-            text = path.read_text(encoding="utf-8", errors="ignore").strip()
-            if text:
-                parts.append(f"## {name}\n{text[:limit]}")
+    
+    # 尝试读取项目配置
+    try:
+        project_config = load_project_path(project_path)
+        context_sources = project_config.get("planning", {}).get("context_sources", [])
+    except Exception:
+        # 如果读取配置失败，使用默认列表
+        context_sources = ["bible/00_story_bible.md", "state/timeline.md", "state/current_context.md"]
+    
+    # 如果配置为空，使用默认列表
+    if not context_sources:
+        context_sources = ["bible/00_story_bible.md", "state/timeline.md", "state/current_context.md"]
+    
+    for source in context_sources:
+        if source == "state":
+            # 如果是 state 目录，读取所有 state 文件
+            state_dir = project_path / "state"
+            if state_dir.is_dir():
+                for state_file in sorted(state_dir.glob("*.md")):
+                    text = state_file.read_text(encoding="utf-8", errors="ignore").strip()
+                    if text and len(text) > 50:  # 忽略空文件或占位文件
+                        parts.append(f"## state/{state_file.name}\n{text[:limit]}")
+        else:
+            # 读取单个文件
+            path = project_path / source
+            if path.is_file():
+                text = path.read_text(encoding="utf-8", errors="ignore").strip()
+                if text and len(text) > 50:  # 忽略空文件或占位文件
+                    parts.append(f"## {source}\n{text[:limit]}")
+            elif path.is_dir():
+                # 如果是目录，读取目录下所有 .md 文件
+                for file in sorted(path.glob("*.md")):
+                    text = file.read_text(encoding="utf-8", errors="ignore").strip()
+                    if text and len(text) > 50:
+                        parts.append(f"## {source}/{file.name}\n{text[:limit]}")
+    
     return "\n\n".join(parts) or "暂无可读项目摘要。"
 
 
@@ -136,6 +168,13 @@ def _generate_live(project_path: Path, chapter: int, threshold: float, llm_clien
             + "\n",
             encoding="utf-8",
         )
+    else:
+        # 如果通过审稿，更新连续性文件
+        try:
+            update_continuity_after_chapter(project_path, chapter, current_text, llm_client)
+        except Exception as e:
+            # 连续性更新失败不应阻止生成流程
+            print(f"Warning: Failed to update continuity: {e}")
 
     return DraftArtifact(
         chapter=chapter,

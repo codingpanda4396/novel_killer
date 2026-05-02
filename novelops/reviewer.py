@@ -73,8 +73,45 @@ def _llm_review(
     text: str,
     threshold: float,
     llm_client: LLMClient,
+    project_path: Path | None = None,
     attempt: int = 0,
 ) -> ReviewResult:
+    # 读取项目级审稿要求
+    project_context = ""
+    if project_path is not None:
+        try:
+            # 读取项目配置
+            project_config = load_project_path(project_path)
+            rubric = project_config.get("rubric", {})
+            hook_terms = rubric.get("hook_terms", [])
+            forbidden_terms = rubric.get("forbidden_terms", [])
+            
+            # 读取审稿检查清单
+            checklist_path = project_path / "bible" / "11_review_checklist.md"
+            checklist = ""
+            if checklist_path.exists():
+                checklist = checklist_path.read_text(encoding="utf-8", errors="ignore")[:1000]
+            
+            # 读取禁写规则
+            forbidden_path = project_path / "bible" / "04_forbidden_rules.md"
+            forbidden_rules = ""
+            if forbidden_path.exists():
+                forbidden_rules = forbidden_path.read_text(encoding="utf-8", errors="ignore")[:800]
+            
+            # 构建项目上下文
+            if hook_terms or forbidden_terms or checklist or forbidden_rules:
+                project_context = "\n\n项目审稿要求：\n"
+                if hook_terms:
+                    project_context += f"- 钩子词（应出现）：{', '.join(hook_terms)}\n"
+                if forbidden_terms:
+                    project_context += f"- 禁写内容：{', '.join(forbidden_terms)}\n"
+                if checklist:
+                    project_context += f"\n审稿检查清单：\n{checklist}\n"
+                if forbidden_rules:
+                    project_context += f"\n禁写规则：\n{forbidden_rules}\n"
+        except Exception:
+            pass
+    
     system = (
         "你是商业长篇小说的严苛审稿人。只返回 JSON 对象，不要 Markdown。"
         "评分范围 0-100，suggested_action 只能是 accept、revise、reject。"
@@ -84,6 +121,8 @@ def _llm_review(
 必须返回字段：
 score, passed, issues, recommendations, scores, revision_tasks, suggested_action。
 scores 必须包含 hook, conflict, consistency, continuity, ai_trace, retention, risk。
+
+{project_context}
 
 章节正文：
 {text}
@@ -123,7 +162,7 @@ def review_text(
     project_path: Path | None = None,
     attempt: int = 0,
 ) -> ReviewResult:
-    result = _llm_review(chapter, text, threshold, llm_client or LLMClient(), attempt=attempt)
+    result = _llm_review(chapter, text, threshold, llm_client or LLMClient(), project_path=project_path, attempt=attempt)
 
     if project_path is not None:
         out = project_path / "reviews" / f"chapter_{chapter:03d}_review.json"

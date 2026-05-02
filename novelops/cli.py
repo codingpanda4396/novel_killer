@@ -11,8 +11,10 @@ from .generator import generate
 from .indexer import rebuild_index
 from .paths import project_dir, rel
 from .planner import plan_next
+from .prepare import prepare_project_interactive
 from .project import STANDARD_DIRS, init_project
 from .publisher import publish_check
+from .readiness import check_project_readiness
 from .reviewer import review_chapter
 from .scout import scout
 
@@ -41,10 +43,11 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_project(args.project)
-    chapters = list_chapters(project_dir(args.project))
-    latest_generation = sorted((project_dir(args.project) / "generation").glob("chapter_*"))
-    latest_reviews = sorted((project_dir(args.project) / "reviews").glob("chapter_*_review.json"))
-    queue = list((project_dir(args.project) / "reviews" / "revision_queue").glob("chapter_*.md"))
+    project_path = project_dir(args.project)
+    chapters = list_chapters(project_path)
+    latest_generation = sorted((project_path / "generation").glob("chapter_*"))
+    latest_reviews = sorted((project_path / "reviews").glob("chapter_*_review.json"))
+    queue = list((project_path / "reviews" / "revision_queue").glob("chapter_*.md"))
     print(f"Project: {cfg['name']} ({args.project})")
     print(f"Genre: {cfg.get('genre', 'unknown')}")
     print(f"Corpus: {len(chapters)} chapters")
@@ -54,6 +57,17 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"Latest generation: {latest_generation[-1].name if latest_generation else 'none'}")
     print(f"Latest review: {latest_reviews[-1].name if latest_reviews else 'none'}")
     print(f"Open revision queue: {len(queue)}")
+    
+    # 增加准备度检查
+    if args.readiness:
+        print("\n=== 开书准备度检查 ===")
+        report = check_project_readiness(project_path, cfg)
+        for item in report.items:
+            status_symbol = "✓" if item.status == "ok" else ("✗" if item.critical else "⚠")
+            print(f"{status_symbol} {item.name}: {item.message}")
+        print(f"\n准备状态: {'可以开始生成' if report.ready else '需要补充关键资料'}")
+        print(f"关键缺失: {report.critical_missing}, 建议补充: {report.warnings}")
+    
     return 0
 
 
@@ -138,6 +152,67 @@ def cmd_ask(args: argparse.Namespace) -> int:
     return 1 if response.errors else 0
 
 
+def cmd_readiness(args: argparse.Namespace) -> int:
+    """检查项目开书准备度"""
+    cfg = load_project(args.project)
+    project_path = project_dir(args.project)
+    report = check_project_readiness(project_path, cfg)
+    
+    print(f"=== {cfg['name']} 开书准备度检查 ===\n")
+    
+    # 分类显示
+    critical_items = [item for item in report.items if item.critical]
+    optional_items = [item for item in report.items if not item.critical]
+    
+    print("【关键项】")
+    for item in critical_items:
+        status_symbol = "✓" if item.status == "ok" else "✗"
+        print(f"  {status_symbol} {item.name}")
+        if item.status != "ok":
+            print(f"    → {item.message}")
+    
+    print("\n【建议项】")
+    for item in optional_items:
+        status_symbol = "✓" if item.status == "ok" else "⚠"
+        print(f"  {status_symbol} {item.name}")
+        if item.status != "ok":
+            print(f"    → {item.message}")
+    
+    print(f"\n{'='*50}")
+    if report.ready:
+        print("✓ 项目已准备就绪，可以开始生成章节")
+    else:
+        print(f"✗ 还有 {report.critical_missing} 个关键项需要补充")
+        print("  请先完善 bible 和 outlines 中的关键资料")
+    
+    if report.warnings > 0:
+        print(f"⚠ 有 {report.warnings} 个建议项可以进一步完善")
+    
+    return 0 if report.ready else 1
+
+
+def cmd_prepare_project(args: argparse.Namespace) -> int:
+    """准备新书项目（生成核心设定和前 30 章大纲）"""
+    project_path = project_dir(args.project)
+    if not project_path.exists():
+        print(f"错误：项目不存在 {project_path}")
+        print("请先运行 novelops init-project 创建项目")
+        return 1
+    
+    print(f"开始准备项目：{args.project}")
+    print("这将使用 LLM 生成核心设定、角色、大纲等内容...")
+    print("预计需要 2-5 分钟\n")
+    
+    if not args.yes:
+        confirm = input("是否继续？(y/N): ")
+        if confirm.lower() != "y":
+            print("已取消")
+            return 0
+    
+    result = prepare_project_interactive(project_path)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="novelops", description="NovelOps v2 CLI")
     app_cfg = load_app_config()
@@ -157,7 +232,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=int(app_cfg.get("web", {}).get("port", 8787)))
     p.set_defaults(func=cmd_serve)
     sub.add_parser("check").set_defaults(func=cmd_check)
-    sub.add_parser("status").set_defaults(func=cmd_status)
+    p = sub.add_parser("status")
+    p.add_argument("--readiness", action="store_true", help="显示开书准备度检查")
+    p.set_defaults(func=cmd_status)
+    sub.add_parser("readiness").set_defaults(func=cmd_readiness)
+    p = sub.add_parser("prepare-project", help="准备新书项目（生成核心设定和大纲）")
+    p.add_argument("--yes", action="store_true", help="跳过确认")
+    p.set_defaults(func=cmd_prepare_project)
     p = sub.add_parser("review-chapter")
     p.add_argument("chapter", type=int)
     p.set_defaults(func=cmd_review_chapter)

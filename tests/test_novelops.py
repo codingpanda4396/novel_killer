@@ -18,6 +18,7 @@ from novelops.corpus import get_chapter, list_chapters
 from novelops.planner import plan_next
 from novelops.project import init_project
 from novelops.paths import project_dir
+from novelops.readiness import check_project_readiness
 from novelops.reviewer import review_text
 
 
@@ -437,6 +438,70 @@ class NovelOpsTests(unittest.TestCase):
                     self.assertTrue(preview.json()["requires_confirmation"])
                     self.assertIn("data-ask-form", client.get("/").text)
                     self.assertIn("data-ask-form", client.get("/projects/life_balance").text)
+
+    def test_init_project_creates_complete_structure(self) -> None:
+        """测试 init_project 创建完整的新书骨架"""
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
+                project_path = init_project("test_novel", "测试小说", "都市异能")
+                
+                # 检查基础目录
+                self.assertTrue((project_path / "bible").is_dir())
+                self.assertTrue((project_path / "outlines").is_dir())
+                self.assertTrue((project_path / "state").is_dir())
+                
+                # 检查 bible 文件
+                self.assertTrue((project_path / "bible" / "00_story_bible.md").exists())
+                self.assertTrue((project_path / "bible" / "01_characters.md").exists())
+                self.assertTrue((project_path / "bible" / "02_power_system.md").exists())
+                self.assertTrue((project_path / "bible" / "03_style_guide.md").exists())
+                self.assertTrue((project_path / "bible" / "04_forbidden_rules.md").exists())
+                self.assertTrue((project_path / "bible" / "11_review_checklist.md").exists())
+                
+                # 检查 outlines 文件
+                self.assertTrue((project_path / "outlines" / "chapter_queue.md").exists())
+                self.assertTrue((project_path / "outlines" / "volume_outline.md").exists())
+                self.assertTrue((project_path / "outlines" / "first_30_chapters.md").exists())
+                
+                # 检查 state 文件
+                self.assertTrue((project_path / "state" / "timeline.md").exists())
+                self.assertTrue((project_path / "state" / "chapter_summary.md").exists())
+                self.assertTrue((project_path / "state" / "character_state.md").exists())
+                self.assertTrue((project_path / "state" / "active_threads.md").exists())
+                self.assertTrue((project_path / "state" / "open_threads.md").exists())
+                self.assertTrue((project_path / "state" / "continuity_index.md").exists())
+                
+                # 检查 project.json
+                config = load_project("test_novel")
+                self.assertEqual(config["name"], "测试小说")
+                self.assertEqual(config["genre"], "都市异能")
+
+    def test_readiness_check_detects_empty_project(self) -> None:
+        """测试准备度检查能识别空项目"""
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
+                project_path = init_project("empty_novel", "空项目", "玄幻")
+                config = load_project("empty_novel")
+                
+                report = check_project_readiness(project_path, config)
+                
+                # 新项目应该不 ready（因为文件都是模板）
+                self.assertFalse(report.ready)
+                self.assertGreater(report.critical_missing, 0)
+                
+                # 检查是否识别出关键缺失项
+                critical_items = [item for item in report.items if item.critical and item.status != "ok"]
+                self.assertGreater(len(critical_items), 0)
+
+    def test_readiness_check_passes_filled_project(self) -> None:
+        """测试准备度检查能识别已填充项目"""
+        # life_balance 项目应该是 ready 的
+        config = load_project("life_balance")
+        report = check_project_readiness(self.project, config)
+        
+        # 应该通过准备度检查
+        self.assertTrue(report.ready)
+        self.assertEqual(report.critical_missing, 0)
 
 
 if __name__ == "__main__":
