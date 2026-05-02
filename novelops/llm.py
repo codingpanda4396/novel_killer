@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from .config import ConfigError, read_json
+from .dotenv_loader import load_dotenv
 from .paths import CONFIG_DIR
+
+load_dotenv()
 
 
 STAGES = {
@@ -63,8 +66,10 @@ class LLMSettings:
 
 def _config_path() -> Path:
     env_path = os.getenv("NOVELOPS_MODEL_CONFIG")
-    if env_path:
-        return Path(env_path)
+    if env_path and env_path.strip():
+        path = Path(env_path.strip())
+        if path.is_file():
+            return path
     return CONFIG_DIR / "models.json"
 
 

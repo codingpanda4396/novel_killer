@@ -6,10 +6,30 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     steps:
-    - name: Deploy
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python3.10 -m pip install --upgrade pip
+          python3.10 -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: python3.10 -m unittest discover -s tests
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -23,6 +43,14 @@ jobs:
           sudo su - novelops << 'EOF'
           set -ex
           unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+          
+          DEPLOY_DIR="/opt/novelOps/novel_killer"
+          
+          # 确保目录存在
+          if [ ! -d "/opt/novelOps" ]; then
+            sudo mkdir -p /opt/novelOps
+            sudo chown novelops:novelops /opt/novelOps
+          fi
           
           cd /opt/novelOps
           
@@ -39,6 +67,8 @@ jobs:
           
           # 用 python3.10 创建虚拟环境
           if [ -d ".venv" ]; then
+            echo "备份当前环境..."
+            cp -r .venv .venv.backup.$(date +%Y%m%d_%H%M%S) || true
             rm -rf .venv
           fi
           python3.10 -m venv .venv
@@ -46,18 +76,31 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-
-          python -m novelops.migrate_to_multi_project || true
-          python -m novelops.cli index || true
-
+          
+          # 创建 .env 文件（如果不存在）
+          if [ ! -f ".env" ]; then
+            echo "创建 .env 文件..."
+            cp .env.example .env
+            echo "警告: 请手动编辑 .env 文件填入 API keys"
+          fi
+          
+          # 运行迁移和索引
+          python3.10 -m novelops.migrate_to_multi_project || true
+          python3.10 -m novelops.cli index || true
+          
           echo "部署完成"
-          ls -la
           EOF
           
-          # 更新 service 文件使用 python3.10
+          # 更新 service 文件并重启服务
           sudo cp /opt/novelOps/novel_killer/deploy/novelops.service /etc/systemd/system/novelops.service
-          sudo sed -i 's|/opt/novelOps/novel_killer/.venv/bin/python3 |/opt/novelOps/novel_killer/.venv/bin/python3.10 |g' /etc/systemd/system/novelops.service
-          sudo sed -i 's|ExecStart=.*|ExecStart=/opt/novelOps/novel_killer/.venv/bin/python3.10 -m novelops.cli serve --host 127.0.0.1 --port 8787|g' /etc/systemd/system/novelops.service
+          
+          # 更新 service 中的 API keys（如果存在 secrets）
+          if [ -n "${{ secrets.DEEPSEEK_API_KEY }}" ]; then
+            sudo sed -i 's|your_deepseek_api_key_here|${{ secrets.DEEPSEEK_API_KEY }}|g' /etc/systemd/system/novelops.service
+          fi
+          if [ -n "${{ secrets.RIGHTCODE_API_KEY }}" ]; then
+            sudo sed -i 's|your_rightcode_api_key_here|${{ secrets.RIGHTCODE_API_KEY }}|g' /etc/systemd/system/novelops.service
+          fi
           
           sudo systemctl daemon-reload
           sudo systemctl restart novelops

@@ -11,7 +11,7 @@ Environment="PATH=/opt/novelOps/novel_killer/.venv/bin:/usr/local/bin:/usr/bin:/
 Environment="NOVELOPS_ENV=production"
 Environment="DEEPSEEK_API_KEY=your_deepseek_api_key_here"
 Environment="RIGHTCODE_API_KEY=your_rightcode_api_key_here"
-ExecStart=/opt/novelOps/novel_killer/.venv/bin/python3 -m novelops.cli serve --host 127.0.0.1 --port 8787
+ExecStart=/opt/novelOps/novel_killer/.venv/bin/python3.10 -m novelops.cli serve --host 127.0.0.1 --port 8787
 Restart=always
 RestartSec=10
 
