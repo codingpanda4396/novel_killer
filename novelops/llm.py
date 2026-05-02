@@ -62,7 +62,10 @@ class LLMSettings:
 
 
 def _config_path() -> Path:
-    return Path(os.getenv("NOVELOPS_MODEL_CONFIG", CONFIG_DIR / "models.json"))
+    env_path = os.getenv("NOVELOPS_MODEL_CONFIG")
+    if env_path:
+        return Path(env_path)
+    return CONFIG_DIR / "models.json"
 
 
 def load_model_config(path: Path | None = None) -> dict[str, Any]:
