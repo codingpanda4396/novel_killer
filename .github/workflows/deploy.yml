@@ -29,28 +29,19 @@ jobs:
           # 更新代码
           if [ ! -d "novel_killer/.git" ]; then
             echo "克隆代码..."
-            env -i HOME=$HOME PATH=$PATH git clone https://github.com/codingpanda4396/novel_killer.git
+            git clone https://github.com/codingpanda4396/novel_killer.git
             cd novel_killer
           else
             echo "更新代码..."
             cd novel_killer
-            env -i HOME=$HOME PATH=$PATH git pull origin main || env -i HOME=$HOME PATH=$PATH git pull origin master
+            git pull origin main || git pull origin master
           fi
           
-          # 确保虚拟环境使用 Python 3.10
+          # 用 python3.10 创建虚拟环境
           if [ -d ".venv" ]; then
-            # 检查当前 venv Python 版本
-            VENV_PYTHON_VER=$(.venv/bin/python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
-            if [ "$(echo "$VENV_PYTHON_VER < 3.7" | bc)" -eq 1 ]; then
-              echo "重建虚拟环境 (Python 3.10)..."
-              rm -rf .venv
-            fi
+            rm -rf .venv
           fi
-          
-          if [ ! -d ".venv" ]; then
-            echo "创建 Python 3.10 虚拟环境..."
-            python3.10 -m venv .venv
-          fi
+          python3.10 -m venv .venv
           
           source .venv/bin/activate
           pip install --upgrade pip
@@ -62,9 +53,10 @@ jobs:
           ls -la
           EOF
           
-          # 确保 service 文件使用 python3.10
+          # 更新 service 文件使用 python3.10
+          sudo cp /opt/novelOps/novel_killer/deploy/novelops.service /etc/systemd/system/novelops.service
           sudo sed -i 's|/opt/novelOps/novel_killer/.venv/bin/python3 |/opt/novelOps/novel_killer/.venv/bin/python3.10 |g' /etc/systemd/system/novelops.service
-          sudo sed -i 's|/opt/novelOps/novel_killer/.venv/bin/python3$|/opt/novelOps/novel_killer/.venv/bin/python3.10|g' /etc/systemd/system/novelops.service
+          sudo sed -i 's|ExecStart=.*|ExecStart=/opt/novelOps/novel_killer/.venv/bin/python3.10 -m novelops.cli serve --host 127.0.0.1 --port 8787|g' /etc/systemd/system/novelops.service
           
           sudo systemctl daemon-reload
           sudo systemctl restart novelops
