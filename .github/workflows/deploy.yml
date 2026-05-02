@@ -16,11 +16,14 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # 如果目录不存在就克隆
-          if [ ! -d "/opt/novelops" ]; then
-            sudo git clone https://github.com/codingpanda4396/novel_killer.git /opt/novelops
-            sudo chown -R novelops:novelops /opt/novelops
-            cd /opt/novelops
+          # 统一使用 /opt/novelOps/novel_killer 路径
+          APP_DIR="/opt/novelOps/novel_killer"
+          
+          if [ ! -d "$APP_DIR" ]; then
+            sudo mkdir -p /opt/novelOps
+            sudo git clone https://github.com/codingpanda4396/novel_killer.git $APP_DIR
+            sudo chown -R novelops:novelops /opt/novelOps
+            cd $APP_DIR
             python3 -m venv .venv
             source .venv/bin/activate
             pip install -r requirements.txt
@@ -29,13 +32,14 @@ jobs:
             sudo systemctl daemon-reload
             sudo systemctl enable novelops
           else
-            cd /opt/novelops
+            cd $APP_DIR
             sudo git pull origin main || sudo git pull origin master
-            sudo chown -R novelops:novelops /opt/novelops
+            sudo chown -R novelops:novelops $APP_DIR
             source .venv/bin/activate
             pip install -r requirements.txt
           fi
           
           sudo systemctl restart novelops
           sudo systemctl reload nginx || true
+          sudo systemctl status novelops --no-pager
           echo "部署完成"
