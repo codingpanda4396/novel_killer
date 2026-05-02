@@ -82,16 +82,46 @@ def test_web_app():
         valid_code = list(invites.keys())[0]
         response = client.post("/invite", data={"code": valid_code}, follow_redirects=False)
         assert response.status_code == 303
-        assert response.headers["location"] == "/"
+        # 新版本重定向到项目列表
+        assert response.headers["location"] == "/projects"
         print(f"  ✓ 有效邀请码登录正常")
 
-        # 测试登录后访问工作台
-        # 注意：TestClient 不会自动保持 cookie，需要手动设置
+        # 测试登录后访问项目列表
         cookies = response.cookies
-        response = client.get("/", cookies=cookies)
-        # 如果项目存在，应该返回 200；如果不存在，返回 404
-        assert response.status_code in [200, 404]
-        print(f"  ✓ 登录后访问工作台: {response.status_code}")
+        response = client.get("/projects", cookies=cookies)
+        assert response.status_code == 200
+        print(f"  ✓ 登录后访问项目列表正常")
+
+
+def test_multi_project():
+    """测试多项目功能"""
+    print("\n测试多项目功能...")
+    from novelops.user import add_user_project, get_user_projects, check_project_access
+    from novelops.indexer import connect
+
+    # 创建测试用户和项目关联
+    with connect() as conn:
+        # 清理测试数据
+        conn.execute("DELETE FROM user_projects WHERE user_id LIKE 'test_%'")
+        conn.commit()
+
+        # 添加测试关联
+        add_user_project("test_user1", "life_balance", is_default=True)
+        print(f"  ✓ 添加用户项目关联")
+
+        # 测试权限检查
+        assert check_project_access("test_user1", "life_balance")
+        assert not check_project_access("test_user2", "life_balance")
+        print(f"  ✓ 权限检查正常")
+
+        # 测试获取用户项目
+        projects = get_user_projects("test_user1")
+        assert len(projects) > 0
+        print(f"  ✓ 获取用户项目列表正常")
+
+        # 清理测试数据
+        conn.execute("DELETE FROM user_projects WHERE user_id LIKE 'test_%'")
+        conn.commit()
 
 def test_templates():
     """测试模板文件"""
@@ -134,6 +164,7 @@ def main():
         test_session()
         test_templates()
         test_deploy_files()
+        test_multi_project()
         test_web_app()
 
         print("\n" + "=" * 60)

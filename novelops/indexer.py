@@ -21,6 +21,15 @@ CREATE TABLE IF NOT EXISTS projects (
   next_chapter INTEGER,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS user_projects (
+  user_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  is_default INTEGER DEFAULT 0,
+  PRIMARY KEY (user_id, project_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_projects_user ON user_projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_projects_default ON user_projects(user_id, is_default);
 CREATE TABLE IF NOT EXISTS chapters (
   project_id TEXT NOT NULL,
   chapter INTEGER NOT NULL,

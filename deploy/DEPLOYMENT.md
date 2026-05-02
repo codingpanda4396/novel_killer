@@ -78,8 +78,12 @@ nano config/novelops.json
   },
   "invites": {
     "TEST-USER-001": {
-      "project": "life_balance",
-      "label": "内测用户001"
+      "user_id": "user001",
+      "username": "内测用户001"
+    },
+    "TEST-USER-002": {
+      "user_id": "user002",
+      "username": "内测用户002"
     }
   },
   "require_manual_publish_confirmation": true
@@ -89,6 +93,7 @@ nano config/novelops.json
 **重要**：
 - `session_secret` 必须设置为随机字符串（可用 `openssl rand -hex 32` 生成）
 - 为每个内测用户添加邀请码配置
+- **新版本配置格式**：邀请码现在绑定到用户而非项目，每个用户可以创建多个项目
 
 ### 4. 准备项目数据
 
@@ -249,6 +254,8 @@ python -m novelops.cli index
 
 ## 更新部署
 
+### 常规更新
+
 ```bash
 # 停止服务
 sudo systemctl stop novelops
@@ -271,6 +278,43 @@ python -m novelops.cli index
 exit
 sudo systemctl start novelops
 ```
+
+### 升级到多项目版本（v2.0+）
+
+如果从旧版本（单项目绑定）升级到新版本（多项目支持），需要执行数据迁移：
+
+```bash
+# 停止服务
+sudo systemctl stop novelops
+
+# 切换到 novelops 用户
+sudo su - novelops
+cd /opt/novelops
+
+# 拉取最新代码
+git pull
+
+# 更新依赖
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 执行数据迁移（将旧的邀请码-项目绑定迁移到用户-项目关联）
+python -m novelops.migrate_to_multi_project
+
+# 重建索引
+python -m novelops.cli index
+
+# 退出并重启服务
+exit
+sudo systemctl start novelops
+```
+
+**迁移说明**：
+- 迁移脚本会自动识别旧格式的邀请码配置
+- 旧格式：`{"project": "xxx", "label": "xxx"}`
+- 新格式：`{"user_id": "xxx", "username": "xxx"}`
+- 迁移后，旧的项目会自动关联到对应用户
+- 建议迁移后更新 `config/novelops.json` 为新格式
 
 ## 安全建议
 

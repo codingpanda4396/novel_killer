@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Form
@@ -11,7 +12,16 @@ from .assistant import ask
 from .config import validate_invite_code
 from .indexer import connect, rebuild_index
 from .paths import ROOT
-from .session import get_session, set_session, clear_session, get_current_project
+from .project import init_project
+from .session import get_session, set_session, clear_session, get_current_user
+from .user import (
+    get_user_projects,
+    add_user_project,
+    get_default_project,
+    set_default_project,
+    check_project_access,
+    has_any_project,
+)
 
 
 templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
@@ -23,11 +33,20 @@ class AskRequest(BaseModel):
     execute: bool = False
 
 
-def require_auth(request: Request) -> str:
-    """要求用户已登录，返回绑定的项目 ID"""
-    project_id = get_current_project(request)
-    if not project_id:
+def require_user(request: Request) -> str:
+    """要求用户已登录，返回user_id"""
+    user_id = get_current_user(request)
+    if not user_id:
         raise HTTPException(status_code=401, detail="未登录")
+    return user_id
+
+
+def require_auth(request: Request) -> str:
+    """要求用户已登录，返回绑定的项目 ID（已废弃，保留向后兼容）"""
+    user_id = require_user(request)
+    project_id = get_default_project(user_id)
+    if not project_id:
+        raise HTTPException(status_code=404, detail="未找到默认项目")
     return project_id
 
 
@@ -46,9 +65,17 @@ def create_app() -> FastAPI:
                 request, "invite.html", {"error": "邀请码无效，请检查后重试"}
             )
 
-        project_id = invite_info["project"]
-        response = RedirectResponse(url="/", status_code=303)
-        set_session(response, {"project_id": project_id, "invite_code": code})
+        user_id = invite_info["user_id"]
+        username = invite_info.get("username", user_id)
+        response = RedirectResponse(url="/projects", status_code=303)
+        set_session(response, {"user_id": user_id, "username": username, "invite_code": code})
+
+        # 如果是旧格式邀请码（包含_legacy_project），自动关联项目
+        if "_legacy_project" in invite_info:
+            legacy_project = invite_info["_legacy_project"]
+            if not check_project_access(user_id, legacy_project):
+                add_user_project(user_id, legacy_project, is_default=True)
+
         return response
 
     @app.post("/logout")
@@ -57,21 +84,86 @@ def create_app() -> FastAPI:
         clear_session(response)
         return response
 
-    @app.post("/api/ask")
-    def api_ask(request: Request, payload: AskRequest) -> dict:
-        project_id = require_auth(request)
-        # 忽略前端传来的 project，只使用 session 绑定的项目
-        return ask(
-            payload.message,
-            default_project=project_id,
-            execute=payload.execute,
-        ).to_dict()
+    @app.get("/projects", response_class=HTMLResponse)
+    def projects_list(request: Request):
+        """项目列表页"""
+        user_id = require_user(request)
+        projects = get_user_projects(user_id)
+        return templates.TemplateResponse(
+            request,
+            "projects_list.html",
+            {"projects": projects}
+        )
+
+    @app.get("/projects/new", response_class=HTMLResponse)
+    def project_new_form(request: Request):
+        """创建项目表单页"""
+        require_user(request)
+        return templates.TemplateResponse(request, "project_new.html", {"error": None})
+
+    @app.post("/projects/new")
+    def project_new_submit(
+        request: Request,
+        name: str = Form(...),
+        genre: str = Form(...),
+        target_platform: str = Form("中文网文连载平台")
+    ):
+        """处理创建项目请求"""
+        user_id = require_user(request)
+
+        # 生成项目ID：user_id + 时间戳
+        project_id = f"{user_id}_{int(time.time())}"
+
+        try:
+            # 创建项目目录和文件
+            project_path = init_project(project_id, name, genre, target_platform)
+
+            # 关联用户和项目，设为默认项目
+            add_user_project(user_id, project_id, is_default=True)
+
+            # 重建索引
+            rebuild_index(project_id)
+
+            # 重定向到项目工作台
+            return RedirectResponse(url=f"/projects/{project_id}/workspace", status_code=303)
+        except Exception as e:
+            return templates.TemplateResponse(
+                request,
+                "project_new.html",
+                {"error": f"创建项目失败: {str(e)}"}
+            )
+
+    @app.post("/projects/{project_id}/set-default")
+    def project_set_default(request: Request, project_id: str):
+        """设置默认项目"""
+        user_id = require_user(request)
+        if not check_project_access(user_id, project_id):
+            raise HTTPException(status_code=403, detail="无权访问此项目")
+        set_default_project(user_id, project_id)
+        return {"status": "ok"}
 
     @app.get("/", response_class=HTMLResponse)
     def workspace(request: Request):
-        project_id = get_current_project(request)
-        if not project_id:
+        user_id = get_current_user(request)
+        if not user_id:
             return RedirectResponse(url="/invite", status_code=303)
+
+        # 如果用户没有项目，重定向到项目列表
+        if not has_any_project(user_id):
+            return RedirectResponse(url="/projects", status_code=303)
+
+        project_id = get_default_project(user_id)
+        if not project_id:
+            return RedirectResponse(url="/projects", status_code=303)
+
+        return RedirectResponse(url=f"/projects/{project_id}/workspace", status_code=303)
+
+    @app.get("/projects/{project_id}/workspace", response_class=HTMLResponse)
+    def project_workspace(request: Request, project_id: str):
+        """项目工作台"""
+        user_id = require_user(request)
+        if not check_project_access(user_id, project_id):
+            raise HTTPException(status_code=403, detail="无权访问此项目")
 
         with connect() as conn:
             project = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
@@ -105,10 +197,22 @@ def create_app() -> FastAPI:
             },
         )
 
+    @app.post("/api/ask")
+    def api_ask(request: Request, payload: AskRequest) -> dict:
+        user_id = require_user(request)
+        project_id = get_default_project(user_id)
+        if not project_id:
+            raise HTTPException(status_code=404, detail="未找到默认项目")
+        return ask(
+            payload.message,
+            default_project=project_id,
+            execute=payload.execute,
+        ).to_dict()
+
     @app.get("/projects/{project_id}", response_class=HTMLResponse)
     def project_detail(request: Request, project_id: str) -> HTMLResponse:
-        current_project = require_auth(request)
-        if project_id != current_project:
+        user_id = require_user(request)
+        if not check_project_access(user_id, project_id):
             raise HTTPException(status_code=403, detail="无权访问此项目")
 
         with connect() as conn:
@@ -133,8 +237,8 @@ def create_app() -> FastAPI:
 
     @app.get("/projects/{project_id}/chapters/{chapter}", response_class=HTMLResponse)
     def chapter_detail(request: Request, project_id: str, chapter: int) -> HTMLResponse:
-        current_project = require_auth(request)
-        if project_id != current_project:
+        user_id = require_user(request)
+        if not check_project_access(user_id, project_id):
             raise HTTPException(status_code=403, detail="无权访问此项目")
 
         with connect() as conn:
@@ -157,7 +261,11 @@ def create_app() -> FastAPI:
 
     @app.get("/revision-queue", response_class=HTMLResponse)
     def revision_queue(request: Request) -> HTMLResponse:
-        project_id = require_auth(request)
+        user_id = require_user(request)
+        project_id = get_default_project(user_id)
+        if not project_id:
+            raise HTTPException(status_code=404, detail="未找到默认项目")
+
         with connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM revision_queue WHERE project_id = ? AND status = 'open' ORDER BY chapter",

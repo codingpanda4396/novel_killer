@@ -8,8 +8,12 @@
   },
   "invites": {
     "TEST-USER-001": {
-      "project": "life_balance",
-      "label": "内测用户001"
+      "user_id": "user001",
+      "username": "内测用户001"
+    },
+    "TEST-USER-002": {
+      "user_id": "user002",
+      "username": "内测用户002"
     }
   },
   "require_manual_publish_confirmation": true

@@ -46,9 +46,10 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          
+
+          python -m novelops.migrate_to_multi_project || true
           python -m novelops.cli index || true
-          
+
           echo "部署完成"
           ls -la
           EOF

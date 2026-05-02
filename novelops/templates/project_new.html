@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>创建新书 - NovelOps</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      color: #202124;
+      background: #f7f7f5;
+    }
+    header {
+      background: #1f2933;
+      color: white;
+      padding: 14px 28px;
+    }
+    main {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 24px;
+    }
+    .form-card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin: 0 0 24px 0;
+      font-size: 28px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #344054;
+    }
+    label .required {
+      color: #dc2626;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: #0f5f74;
+      box-shadow: 0 0 0 3px rgba(15, 95, 116, 0.1);
+    }
+    .help-text {
+      font-size: 13px;
+      color: #667085;
+      margin-top: 4px;
+    }
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+    }
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 0;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-primary {
+      background: #0f5f74;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0d4d5f;
+    }
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>NovelOps - 创建新书</div>
+  </header>
+  <main>
+    <div class="form-card">
+      <h1>创建新书</h1>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/projects/new">
+        <div class="form-group">
+          <label for="name">书名 <span class="required">*</span></label>
+          <input type="text" id="name" name="name" required autofocus>
+        </div>
+        <div class="form-group">
+          <label for="genre">题材 <span class="required">*</span></label>
+          <select id="genre" name="genre" required>
+            <option value="">请选择题材</option>
+            <option value="仙侠">仙侠</option>
+            <option value="玄幻">玄幻</option>
+            <option value="都市">都市</option>
+            <option value="科幻">科幻</option>
+            <option value="历史">历史</option>
+            <option value="游戏">游戏</option>
+            <option value="悬疑">悬疑</option>
+            <option value="武侠">武侠</option>
+            <option value="奇幻">奇幻</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="target_platform">目标平台</label>
+          <input type="text" id="target_platform" name="target_platform" value="中文网文连载平台">
+          <div class="help-text">可选，默认为"中文网文连载平台"</div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">创建项目</button>
+          <a href="/projects" class="btn btn-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

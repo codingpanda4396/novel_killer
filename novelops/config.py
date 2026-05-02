@@ -70,9 +70,26 @@ def load_invites() -> dict[str, dict[str, str]]:
 
 
 def validate_invite_code(code: str) -> dict[str, str] | None:
-    """验证邀请码，返回邀请码信息或 None"""
+    """验证邀请码，返回邀请码信息或 None
+
+    支持两种格式：
+    1. 新格式：{"user_id": "xxx", "username": "xxx"}
+    2. 旧格式（向后兼容）：{"project": "xxx", "label": "xxx"}
+    """
     invites = load_invites()
-    return invites.get(code)
+    invite_info = invites.get(code)
+    if not invite_info:
+        return None
+
+    # 如果是旧格式（包含project字段），转换为新格式
+    if "project" in invite_info and "user_id" not in invite_info:
+        return {
+            "user_id": invite_info["project"],  # 使用项目ID作为用户ID
+            "username": invite_info.get("label", invite_info["project"]),
+            "_legacy_project": invite_info["project"]  # 保留原始项目ID用于迁移
+        }
+
+    return invite_info
 
 
 def get_session_secret() -> str:

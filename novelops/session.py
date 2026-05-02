@@ -49,7 +49,13 @@ def clear_session(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE_NAME)
 
 
+def get_current_user(request: Request) -> str | None:
+    """获取当前登录的用户 ID"""
+    session = get_session(request)
+    return session.get("user_id")
+
+
 def get_current_project(request: Request) -> str | None:
-    """获取当前用户绑定的项目 ID"""
+    """获取当前用户绑定的项目 ID（已废弃，保留向后兼容）"""
     session = get_session(request)
     return session.get("project_id")

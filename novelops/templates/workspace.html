@@ -149,7 +149,10 @@
 </head>
 <body>
   <header>
-    <div>NovelOps - {{ project.name }}</div>
+    <div style="display: flex; gap: 20px; align-items: center;">
+      <a href="/projects" style="color: white; text-decoration: none; opacity: 0.8; font-size: 14px;">← 我的项目</a>
+      <div>NovelOps - {{ project.name }}</div>
+    </div>
     <form method="post" action="/logout" style="margin: 0;">
       <button type="submit" class="logout-btn">退出</button>
     </form>
