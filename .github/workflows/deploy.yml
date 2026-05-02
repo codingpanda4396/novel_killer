@@ -15,31 +15,41 @@ jobs:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
+        command_timeout: 5m
         script: |
-          # 统一使用 /opt/novelOps/novel_killer 路径
+          set -ex
+          echo "=== 开始部署 ==="
+          
           APP_DIR="/opt/novelOps/novel_killer"
           
+          # 首次部署
           if [ ! -d "$APP_DIR" ]; then
+            echo "=== 克隆代码 ==="
             sudo mkdir -p /opt/novelOps
             sudo git clone https://github.com/codingpanda4396/novel_killer.git $APP_DIR
-            sudo chown -R novelops:novelops /opt/novelOps
+            
+            echo "=== 安装依赖 ==="
             cd $APP_DIR
-            python3 -m venv .venv
-            source .venv/bin/activate
-            pip install -r requirements.txt
-            python -m novelops.cli index
-            sudo cp deploy/novelops.service /etc/systemd/system/
+            sudo chown -R novelops:novelops $APP_DIR
+            sudo -u novelops python3 -m venv .venv
+            sudo -u novelops bash -c "source .venv/bin/activate && pip install -r requirements.txt"
+            sudo -u novelops bash -c "source .venv/bin/activate && python -m novelops.cli index"
+            
+            echo "=== 配置服务 ==="
+            sudo cp $APP_DIR/deploy/novelops.service /etc/systemd/system/
             sudo systemctl daemon-reload
             sudo systemctl enable novelops
           else
+            echo "=== 更新代码 ==="
             cd $APP_DIR
-            sudo git pull origin main || sudo git pull origin master
-            sudo chown -R novelops:novelops $APP_DIR
-            source .venv/bin/activate
-            pip install -r requirements.txt
+            sudo -u novelops git pull origin main || sudo -u novelops git pull origin master
+            sudo -u novelops bash -c "source .venv/bin/activate && pip install -r requirements.txt"
           fi
           
-          sudo systemctl restart novelops
+          echo "=== 重启服务 ==="
+          sudo systemctl restart novelops || true
           sudo systemctl reload nginx || true
-          sudo systemctl status novelops --no-pager
-          echo "部署完成"
+          sudo systemctl status novelops --no-pager || true
+          
+          echo "=== 部署完成 ==="
+          ls -la $APP_DIR
