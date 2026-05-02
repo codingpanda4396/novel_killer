@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Deploy
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
@@ -16,77 +15,27 @@ jobs:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
-        envs: DEEPSEEK_API_KEY,RIGHTCODE_API_KEY
         script: |
-          set -e
-          echo "=== 开始部署 ==="
-          
-          # 首次部署
+          # 如果目录不存在就克隆
           if [ ! -d "/opt/novelops" ]; then
-            echo "=== 首次部署 ==="
-            
-            # 创建用户（如果不存在）
-            if ! id -u novelops > /dev/null 2>&1; then
-              sudo useradd -m -s /bin/bash novelops
-            fi
-            
-            # 克隆代码
             sudo git clone https://github.com/codingpanda4396/novel_killer.git /opt/novelops
             sudo chown -R novelops:novelops /opt/novelops
-            
             cd /opt/novelops
-            
-            # 创建虚拟环境
             python3 -m venv .venv
             source .venv/bin/activate
             pip install -r requirements.txt
-            
-            # 初始化索引
             python -m novelops.cli index
-            
-            # 配置 systemd 服务
             sudo cp deploy/novelops.service /etc/systemd/system/
-            
-            # 替换 API Key
-            if [ -n "$DEEPSEEK_API_KEY" ]; then
-              sudo sed -i "s|your_deepseek_api_key_here|$DEEPSEEK_API_KEY|g" /etc/systemd/system/novelops.service
-            fi
-            if [ -n "$RIGHTCODE_API_KEY" ]; then
-              sudo sed -i "s|your_rightcode_api_key_here|$RIGHTCODE_API_KEY|g" /etc/systemd/system/novelops.service
-            fi
-            
-            # 启动服务
             sudo systemctl daemon-reload
             sudo systemctl enable novelops
-            sudo systemctl start novelops
-            
-            # 配置 nginx（如果配置文件存在）
-            if [ -f "deploy/nginx.conf" ]; then
-              sudo cp deploy/nginx.conf /etc/nginx/conf.d/novelops.conf 2>/dev/null || true
-              sudo nginx -t && sudo systemctl reload nginx || true
-            fi
-            
-            echo "=== 首次部署完成 ==="
           else
-            # 更新部署
-            echo "=== 更新部署 ==="
             cd /opt/novelops
-            
-            sudo systemctl stop novelops || true
-            
             sudo git pull origin main || sudo git pull origin master
             sudo chown -R novelops:novelops /opt/novelops
-            
             source .venv/bin/activate
             pip install -r requirements.txt
-            
-            python -m novelops.cli index
-            
-            sudo systemctl start novelops
-            sudo systemctl reload nginx || true
-            
-            echo "=== 更新部署完成 ==="
           fi
           
-          sudo systemctl status novelops --no-pager || echo "检查状态完成"
-          echo "=== 部署结束 ==="
+          sudo systemctl restart novelops
+          sudo systemctl reload nginx || true
+          echo "部署完成"
