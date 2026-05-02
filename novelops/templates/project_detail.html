@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+<p class="muted">{{ project.id }} · {{ project.genre or "" }} · 当前卷 {{ project.current_volume or "" }} · 下一章 {{ project.next_chapter or "" }} · open 修订 {{ open_queue }}</p>
+<section class="ask-panel">
+  <form data-ask-form data-project="{{ project.id }}">
+    <div class="ask-row">
+      <input name="message" placeholder="用中文操作当前项目，例如：解释第51章审稿为什么没过" autocomplete="off">
+      <button type="submit">发送</button>
+    </div>
+  </form>
+  <div class="ask-result muted"></div>
+</section>
+<div class="grid">
+{% for item in summaries %}
+  <section class="card">
+    <h2>{{ item.name }}</h2>
+    {% if item.exists %}<pre>{{ item.excerpt }}</pre>{% else %}<p class="muted">缺失</p>{% endif %}
+  </section>
+{% endfor %}
+</div>
+<h2>章节</h2>
+<table>
+  <tr><th>章号</th><th>来源</th><th>标题</th><th>字数</th><th>状态</th></tr>
+  {% for chapter in chapters %}
+  <tr>
+    <td><a href="/projects/{{ project.id }}/chapters/{{ chapter.chapter }}">{{ "%03d"|format(chapter.chapter) }}</a></td>
+    <td>{{ chapter.source_type }}</td>
+    <td>{{ chapter.title or "" }}</td>
+    <td>{{ chapter.word_count or "" }}</td>
+    <td>{{ chapter.status or "" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

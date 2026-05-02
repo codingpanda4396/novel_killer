@@ -3,6 +3,7 @@
   "name": "我能看见人生余额开局救下白月光",
   "genre": "都市异能悬疑爽文",
   "target_platform": "中文网文连载平台",
+  "language": "zh-CN",
   "chapter_length": {
     "min": 2000,
     "target": 2500,
@@ -28,10 +29,39 @@
     "last_completed_chapter": 50,
     "next_chapter": 51
   },
+  "planning": {
+    "default_strategy": "queue_first_then_bible_state",
+    "context_sources": [
+      "outlines/chapter_queue.md",
+      "bible/00_story_bible.md",
+      "state"
+    ],
+    "require_chapter_queue": false
+  },
+  "rubric": {
+    "hook_terms": [
+      "余额",
+      "寿命",
+      "命运",
+      "代价",
+      "规则",
+      "天平"
+    ],
+    "forbidden_terms": [
+      "自动复活已收束反派",
+      "跳过代价",
+      "直接写成终局"
+    ],
+    "weights": {
+      "word_count": 14,
+      "paragraph_density": 8,
+      "dialogue_density": 8,
+      "hook_terms": 10
+    }
+  },
   "migration": {
     "source": "v1",
     "volume_01_status": "readonly_corpus",
     "notes": "第一卷正文作为参考语料和发布检查对象，不再由 v1 流程维护。"
   }
 }
-

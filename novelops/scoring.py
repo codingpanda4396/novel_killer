@@ -1,23 +1,29 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 
-def text_metrics(text: str) -> dict[str, float]:
+def text_metrics(text: str, rubric: dict[str, Any] | None = None) -> dict[str, float]:
+    rubric = rubric or {}
     paragraphs = [p for p in re.split(r"\n\s*\n", text.strip()) if p.strip()]
     tokens = re.findall(r"[\u4e00-\u9fff]|[A-Za-z0-9]+", text)
     dialogue = len(re.findall(r'["“”]', text))
-    hook_terms = sum(text.count(term) for term in ["余额", "寿命", "命运", "代价", "规则", "天平"])
+    hook_terms_cfg = [str(term) for term in rubric.get("hook_terms", []) if str(term)]
+    hook_terms = sum(text.count(term) for term in hook_terms_cfg)
+    forbidden_terms = sum(text.count(str(term)) for term in rubric.get("forbidden_terms", []) if str(term))
     return {
         "word_count": float(len(tokens)),
         "paragraphs": float(len(paragraphs)),
         "dialogue_marks": float(dialogue),
         "hook_terms": float(hook_terms),
+        "forbidden_terms": float(forbidden_terms),
     }
 
 
-def score_text(text: str) -> tuple[float, list[str], list[str]]:
-    metrics = text_metrics(text)
+def score_text(text: str, rubric: dict[str, Any] | None = None) -> tuple[float, list[str], list[str]]:
+    rubric = rubric or {}
+    metrics = text_metrics(text, rubric)
     score = 60.0
     issues: list[str] = []
     recommendations: list[str] = []
@@ -41,10 +47,17 @@ def score_text(text: str) -> tuple[float, list[str], list[str]]:
     else:
         recommendations.append("增加角色对话或即时冲突，避免纯叙述推进。")
 
-    if metrics["hook_terms"] >= 8:
-        score += 10
+    if rubric.get("hook_terms"):
+        if metrics["hook_terms"] >= 3:
+            score += 10
+        else:
+            issues.append("项目 rubric 中的核心卖点词出现不足，章节与题材绑定偏弱。")
     else:
-        issues.append("核心卖点词汇出现不足，章节与项目题材绑定偏弱。")
+        recommendations.append("项目 rubric 未配置 hook_terms，本次只使用通用基础评分。")
+
+    if metrics["forbidden_terms"] > 0:
+        score -= 15
+        issues.append("正文包含项目 rubric 标记的禁写项。")
 
     if re.search(r"(未完待续|敬请期待|作者)", text):
         score -= 12
@@ -54,4 +67,3 @@ def score_text(text: str) -> tuple[float, list[str], list[str]]:
     if not issues:
         recommendations.append("保留现有节奏，复核连续性细节后可进入候选池。")
     return score, issues, recommendations
-

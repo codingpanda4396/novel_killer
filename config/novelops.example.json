@@ -1,6 +1,9 @@
 {
   "default_project": "life_balance",
-  "no_llm": true,
+  "db_path": "runtime/novelops.sqlite3",
+  "web": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
   "require_manual_publish_confirmation": true
 }
-

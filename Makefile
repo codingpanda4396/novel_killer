@@ -1,9 +1,22 @@
-.PHONY: help check status review-chapter review-range publish-check plan-next generate scout test
+.PHONY: help init-project index serve check status review-chapter review-range publish-check plan-next generate scout test
 
 PROJECT ?= life_balance
 
 help:
 	@python3 -m novelops.cli --help
+
+init-project:
+	@if [ -z "$(ID)" ] || [ -z "$(NAME)" ] || [ -z "$(GENRE)" ]; then \
+		echo 'Usage: make init-project ID=demo NAME=测试 GENRE=仙侠升级流'; \
+		exit 1; \
+	fi
+	@python3 -m novelops.cli init-project "$(ID)" --name "$(NAME)" --genre "$(GENRE)"
+
+index:
+	@python3 -m novelops.cli index --project "$(PROJECT)"
+
+serve:
+	@python3 -m novelops.cli serve
 
 check:
 	@python3 -m novelops.cli --project "$(PROJECT)" check

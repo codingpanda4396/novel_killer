@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NovelOps</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; color: #202124; background: #f7f7f5; }
+    header { background: #1f2933; color: white; padding: 14px 28px; }
+    nav a { color: white; margin-right: 18px; text-decoration: none; }
+    main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #eef2f4; font-weight: 650; }
+    a { color: #0f5f74; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+    .muted { color: #667085; }
+    .ask-panel { background: white; border: 1px solid #d8dee4; border-radius: 8px; padding: 12px; margin-bottom: 18px; }
+    .ask-row { display: flex; gap: 8px; align-items: center; }
+    .ask-row input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #c9d1d9; border-radius: 6px; font-size: 15px; }
+    button { border: 0; border-radius: 6px; background: #0f5f74; color: white; padding: 10px 14px; cursor: pointer; }
+    button.secondary { background: #475467; }
+    .ask-result { margin-top: 10px; line-height: 1.5; }
+    .ask-actions { margin-top: 8px; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <header><nav><a href="/">项目</a><a href="/revision-queue">修订队列</a></nav></header>
+  <main>{% block content %}{% endblock %}</main>
+  <script>
+    async function submitAsk(form, execute) {
+      const input = form.querySelector("input[name='message']");
+      const result = form.parentElement.querySelector(".ask-result");
+      const project = form.dataset.project || null;
+      result.textContent = "处理中...";
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message: input.value, project, execute: Boolean(execute)})
+      });
+      const data = await response.json();
+      result.innerHTML = "";
+      const text = document.createElement("div");
+      text.textContent = data.message || "无结果";
+      result.appendChild(text);
+      if (data.requires_confirmation) {
+        const actions = document.createElement("pre");
+        actions.textContent = (data.actions || []).map(action => action.command || action.intent).join("\n");
+        result.appendChild(actions);
+        const box = document.createElement("div");
+        box.className = "ask-actions";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary";
+        button.textContent = "确认执行";
+        button.onclick = () => submitAsk(form, true);
+        box.appendChild(button);
+        result.appendChild(box);
+      }
+    }
+    document.querySelectorAll("[data-ask-form]").forEach(form => {
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+        submitAsk(form, false);
+      });
+    });
+  </script>
+</body>
+</html>

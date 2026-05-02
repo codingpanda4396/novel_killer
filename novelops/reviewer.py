@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .config import ConfigError, write_json
+from .config import ConfigError, load_project_path, write_json
 from .corpus import get_chapter
-from .llm import LLMClient, has_live_config
+from .llm import LLMClient
 from .schemas import ReviewResult, to_dict
 from .scoring import score_text
 
@@ -26,8 +26,11 @@ def _read_chapter_text(project_path: Path, chapter: int) -> str:
         raise
 
 
-def _rule_review(chapter: int, text: str, threshold: float, attempt: int = 0) -> ReviewResult:
-    score, issues, recommendations = score_text(text)
+def _rule_review(chapter: int, text: str, threshold: float, project_path: Path | None = None, attempt: int = 0) -> ReviewResult:
+    rubric = {}
+    if project_path is not None and (project_path / "project.json").is_file():
+        rubric = load_project_path(project_path).get("rubric", {})
+    score, issues, recommendations = score_text(text, rubric)
     scores = {key: score for key in SCORE_KEYS}
     action = "accept" if score >= threshold else "revise"
     return ReviewResult(
@@ -89,8 +92,6 @@ scores 必须包含 hook, conflict, consistency, continuity, ai_trace, retention
         "type": "json_object",
     }
     data = llm_client.complete_json(prompt, system=system, stage="reviewer", schema=schema)
-    if getattr(llm_client, "last_used_mock", False):
-        raise ConfigError(getattr(llm_client, "last_fallback_reason", None) or "reviewer_used_mock")
     score = _clamp_score(data.get("score"))
     scores_raw = data.get("scores") if isinstance(data.get("scores"), dict) else {}
     scores = {key: _clamp_score(scores_raw.get(key), score) for key in SCORE_KEYS}
@@ -108,7 +109,7 @@ scores 必须包含 hook, conflict, consistency, continuity, ai_trace, retention
         scores=scores,
         revision_tasks=_coerce_list(data.get("revision_tasks")),
         suggested_action=action,
-        model=llm_client.settings_for("reviewer").model if not llm_client.no_llm else "deterministic-local",
+        model=llm_client.settings_for("reviewer").model,
         attempt=attempt,
         llm_used=True,
     )
@@ -119,28 +120,10 @@ def review_text(
     text: str,
     threshold: float,
     llm_client: LLMClient | None = None,
-    no_llm: bool = False,
     project_path: Path | None = None,
     attempt: int = 0,
 ) -> ReviewResult:
-    fallback_reason: str | None = None
-    if no_llm or (llm_client is None and not has_live_config("reviewer")):
-        fallback_reason = "no_llm" if no_llm else "missing_live_reviewer_config"
-        result = _rule_review(chapter, text, threshold, attempt=attempt)
-    else:
-        try:
-            result = _llm_review(chapter, text, threshold, llm_client or LLMClient(), attempt=attempt)
-        except Exception as exc:
-            fallback_reason = str(exc)
-            result = _rule_review(chapter, text, threshold, attempt=attempt)
-    if fallback_reason:
-        result = ReviewResult(
-            **{
-                **to_dict(result),
-                "fallback_reason": fallback_reason,
-                "llm_used": False,
-            }
-        )
+    result = _llm_review(chapter, text, threshold, llm_client or LLMClient(), attempt=attempt)
 
     if project_path is not None:
         out = project_path / "reviews" / f"chapter_{chapter:03d}_review.json"
@@ -153,10 +136,9 @@ def review_chapter(
     chapter: int,
     threshold: float,
     llm_client: LLMClient | None = None,
-    no_llm: bool = False,
 ) -> ReviewResult:
     text = _read_chapter_text(project_path, chapter)
-    result = review_text(chapter, text, threshold, llm_client=llm_client, no_llm=no_llm, project_path=project_path)
+    result = review_text(chapter, text, threshold, llm_client=llm_client, project_path=project_path)
     if not result.passed:
         queue = project_path / "reviews" / "revision_queue" / f"chapter_{chapter:03d}.md"
         queue.parent.mkdir(parents=True, exist_ok=True)

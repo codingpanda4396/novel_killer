@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
-from .paths import project_dir
+from .paths import CONFIG_DIR, RUNTIME_DIR, project_dir
 
 
 class ConfigError(RuntimeError):
@@ -25,10 +26,38 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def load_app_config() -> dict[str, Any]:
+    path = CONFIG_DIR / "novelops.json"
+    if path.is_file():
+        return read_json(path)
+    example = CONFIG_DIR / "novelops.example.json"
+    if example.is_file():
+        return read_json(example)
+    return {}
+
+
+def default_project_id() -> str:
+    return str(load_app_config().get("default_project") or "life_balance")
+
+
+def db_path() -> Path:
+    env = os.environ.get("NOVELOPS_DB")
+    if env:
+        return Path(env)
+    configured = load_app_config().get("db_path")
+    if configured:
+        path = Path(str(configured))
+        return path if path.is_absolute() else RUNTIME_DIR.parent / path
+    return RUNTIME_DIR / "novelops.sqlite3"
+
+
 def load_project(project: str) -> dict[str, Any]:
     return read_json(project_dir(project) / "project.json")
 
 
+def load_project_path(project_path: Path) -> dict[str, Any]:
+    return read_json(project_path / "project.json")
+
+
 def threshold(project_config: dict[str, Any], key: str = "chapter") -> float:
     return float(project_config.get("review_thresholds", {}).get(key, 80))
-

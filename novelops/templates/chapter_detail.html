@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ project.name }} · 第 {{ "%03d"|format(chapter) }} 章</h1>
+<h2>正文索引</h2>
+<table>
+  <tr><th>来源</th><th>标题</th><th>字数</th><th>状态</th><th>路径</th></tr>
+  {% for row in chapters %}
+  <tr><td>{{ row.source_type }}</td><td>{{ row.title or "" }}</td><td>{{ row.word_count or "" }}</td><td>{{ row.status or "" }}</td><td>{{ row.path }}</td></tr>
+  {% endfor %}
+</table>
+<h2>生成记录</h2>
+<table>
+  <tr><th>最终阶段</th><th>分数</th><th>状态</th><th>目录</th></tr>
+  {% for run in runs %}
+  <tr><td>{{ run.final_stage or "" }}</td><td>{{ run.final_score or "" }}</td><td>{{ run.status or "" }}</td><td>{{ run.artifact_dir }}</td></tr>
+  {% endfor %}
+</table>
+<h2>产物</h2>
+<ul>{% for artifact in artifacts %}<li>{{ artifact }}</li>{% endfor %}</ul>
+<h2>审稿</h2>
+<table>
+  <tr><th>分数</th><th>阈值</th><th>通过</th><th>动作</th><th>模型</th><th>报告</th></tr>
+  {% for review in reviews %}
+  <tr><td>{{ review.score }}</td><td>{{ review.threshold_value }}</td><td>{{ review.passed }}</td><td>{{ review.action or "" }}</td><td>{{ review.model or "" }}</td><td>{{ review.report_path }}</td></tr>
+  {% endfor %}
+</table>
+<h2>修订队列</h2>
+<table>
+  <tr><th>状态</th><th>原因</th><th>路径</th></tr>
+  {% for item in queue %}
+  <tr><td>{{ item.status }}</td><td>{{ item.reason or "" }}</td><td>{{ item.path }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

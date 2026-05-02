@@ -55,5 +55,10 @@
     "temperature": 0.2,
     "max_tokens": 3000
   },
+  "assistant": {
+    "model": "gpt-4o-mini",
+    "temperature": 0,
+    "max_tokens": 1000
+  },
   "max_revision_attempts": 2
 }

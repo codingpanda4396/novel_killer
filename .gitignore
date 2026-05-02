@@ -6,3 +6,4 @@ config/workflow.local.json
 .DS_Store
 *.tmp
 __pycache__/
+runtime/

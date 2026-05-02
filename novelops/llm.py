@@ -21,6 +21,7 @@ STAGES = {
     "reviewer",
     "revision",
     "scout",
+    "assistant",
 }
 
 
@@ -96,6 +97,8 @@ def _role_for_stage(stage: str) -> str | None:
         return "reviewer"
     if stage == "scout":
         return "scout"
+    if stage == "assistant":
+        return "assistant"
     return None
 
 
@@ -109,41 +112,13 @@ def _first_env(names: list[str]) -> str | None:
 
 def _apply_env_fallbacks(config: dict[str, Any]) -> dict[str, Any]:
     merged = dict(config)
-    if not merged.get("api_key"):
+    if not merged.get("api_key") and not merged.get("api_key_env"):
         merged["api_key"] = _first_env(["NOVELOPS_API_KEY", "OPENAI_API_KEY", "API_KEY"])
     if not merged.get("base_url"):
         merged["base_url"] = _first_env(["NOVELOPS_BASE_URL", "OPENAI_BASE_URL", "BASE_URL"])
     if not merged.get("model"):
         merged["model"] = _first_env(["NOVELOPS_MODEL", "OPENAI_MODEL", "MODEL"])
     return merged
-
-
-def _mock_response(prompt: str, stage: str | None = None) -> str:
-    stage_name = stage or "draft_v1"
-    if stage_name in {"chapter_intent", "scene_chain", "reviewer"}:
-        if stage_name == "reviewer":
-            return json.dumps(
-                {
-                    "score": 86,
-                    "passed": True,
-                    "issues": [],
-                    "recommendations": ["保持章尾钩子清晰。"],
-                    "scores": {
-                        "hook": 88,
-                        "conflict": 84,
-                        "consistency": 86,
-                        "continuity": 86,
-                        "ai_trace": 90,
-                        "retention": 85,
-                        "risk": 92,
-                    },
-                    "revision_tasks": [],
-                    "suggested_action": "accept",
-                },
-                ensure_ascii=False,
-            )
-        return json.dumps({"mock": True, "stage": stage_name, "summary": prompt[:120]}, ensure_ascii=False)
-    return "NO_LLM_MOCK: " + prompt[:200].strip()
 
 
 def _redact(text: str, secret: str | None) -> str:
@@ -171,14 +146,10 @@ class LLMClient:
     def __init__(
         self,
         settings: LLMSettings | None = None,
-        no_llm: bool = False,
         config_path: Path | None = None,
     ) -> None:
         self.settings = settings
-        self.no_llm = no_llm
         self.config_path = config_path
-        self.last_fallback_reason: str | None = None
-        self.last_used_mock: bool = False
         self.live_call_count = 0
 
     def settings_for(self, stage: str | None = None) -> LLMSettings:
@@ -191,20 +162,15 @@ class LLMClient:
         stage: str | None = None,
         response_format: dict[str, Any] | None = None,
     ) -> str:
-        self.last_fallback_reason = None
-        self.last_used_mock = False
-        if self.no_llm:
-            return self._fallback(prompt, stage, "no_llm")
-
         settings = self.settings_for(stage)
         api_key = settings.resolved_api_key
         if not api_key:
-            return self._fallback(prompt, stage, f"missing_api_key:{settings.api_key_env}")
+            raise ConfigError(f"Missing API key for {stage or 'default'}: {settings.api_key_env}")
 
         try:
             from openai import OpenAI
         except ImportError as exc:
-            return self._fallback(prompt, stage, f"missing_openai_sdk:{exc}")
+            raise ConfigError(f"Missing OpenAI SDK: {exc}") from exc
 
         messages: list[dict[str, str]] = []
         if system:
@@ -233,13 +199,13 @@ class LLMClient:
             response = OpenAI(**client_kwargs).chat.completions.create(**kwargs)
             content = str(response.choices[0].message.content or "").strip()
             if not content:
-                return self._fallback(prompt, stage, "empty_llm_response")
+                raise ConfigError(f"Empty LLM response for {stage or 'default'}")
             self.live_call_count += 1
             return content
         except Exception as exc:
             masked = settings.masked()
             reason = f"llm_call_failed:{masked}:{_redact(str(exc), api_key)}"
-            return self._fallback(prompt, stage, reason)
+            raise ConfigError(reason) from exc
 
     def complete_json(
         self,
@@ -263,8 +229,3 @@ class LLMClient:
         if not isinstance(value, dict):
             raise ConfigError(f"LLM JSON for {stage or 'unknown'} must be an object.")
         return value
-
-    def _fallback(self, prompt: str, stage: str | None, reason: str) -> str:
-        self.last_fallback_reason = reason
-        self.last_used_mock = True
-        return _mock_response(prompt, stage)

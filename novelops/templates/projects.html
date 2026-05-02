@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>项目列表</h1>
+<section class="ask-panel">
+  <form data-ask-form data-project="">
+    <div class="ask-row">
+      <input name="message" placeholder="用中文操作 NovelOps，例如：查看 life_balance 状态" autocomplete="off">
+      <button type="submit">发送</button>
+    </div>
+  </form>
+  <div class="ask-result muted"></div>
+</section>
+<table>
+  <tr><th>项目</th><th>题材</th><th>当前卷</th><th>章节数</th><th>最近生成</th><th>最近审稿</th></tr>
+  {% for project in projects %}
+  <tr>
+    <td><a href="/projects/{{ project.id }}">{{ project.name }}</a><br><span class="muted">{{ project.id }}</span></td>
+    <td>{{ project.genre or "" }}</td>
+    <td>{{ project.current_volume or "" }}</td>
+    <td>{{ project.chapter_count }}</td>
+    <td>{{ project.latest_generation or "" }}</td>
+    <td>{{ project.latest_review_score or "" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

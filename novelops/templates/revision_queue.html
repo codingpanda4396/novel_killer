@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>修订队列</h1>
+<table>
+  <tr><th>项目</th><th>章节</th><th>状态</th><th>问题摘要</th><th>路径</th></tr>
+  {% for item in items %}
+  <tr>
+    <td><a href="/projects/{{ item.project_id }}">{{ item.project_id }}</a></td>
+    <td><a href="/projects/{{ item.project_id }}/chapters/{{ item.chapter }}">{{ "%03d"|format(item.chapter) }}</a></td>
+    <td>{{ item.status }}</td>
+    <td>{{ item.reason or "" }}</td>
+    <td>{{ item.path }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
