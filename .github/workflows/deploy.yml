@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Deploy to server (CentOS 9)
+    - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -19,18 +19,13 @@ jobs:
         envs: DEEPSEEK_API_KEY,RIGHTCODE_API_KEY
         script: |
           set -e
-          echo "=== 开始部署到 CentOS 9 ==="
+          echo "=== 开始部署 ==="
           
-          # 首次部署：安装依赖和克隆代码
+          # 首次部署
           if [ ! -d "/opt/novelops" ]; then
-            echo "=== 首次部署初始化 ==="
+            echo "=== 首次部署 ==="
             
-            # CentOS 9 安装依赖
-            sudo dnf install -y epel-release || true
-            sudo dnf install -y python3 python3-pip nginx git
-            sudo dnf install -y python3-virtualenv || true
-            
-            # 创建 novelops 用户
+            # 创建用户（如果不存在）
             if ! id -u novelops > /dev/null 2>&1; then
               sudo useradd -m -s /bin/bash novelops
             fi
@@ -65,10 +60,9 @@ jobs:
             sudo systemctl enable novelops
             sudo systemctl start novelops
             
-            # 配置 nginx
+            # 配置 nginx（如果配置文件存在）
             if [ -f "deploy/nginx.conf" ]; then
-              sudo cp deploy/nginx.conf /etc/nginx/conf.d/novelops.conf 2>/dev/null || \
-              sudo cp deploy/nginx.conf /etc/nginx/sites-available/novelops 2>/dev/null || true
+              sudo cp deploy/nginx.conf /etc/nginx/conf.d/novelops.conf 2>/dev/null || true
               sudo nginx -t && sudo systemctl reload nginx || true
             fi
             
@@ -94,6 +88,5 @@ jobs:
             echo "=== 更新部署完成 ==="
           fi
           
-          # 检查服务状态
-          sudo systemctl status novelops --no-pager || echo "服务状态检查完成"
-          echo "=== 部署流程结束 ==="
+          sudo systemctl status novelops --no-pager || echo "检查状态完成"
+          echo "=== 部署结束 ==="
