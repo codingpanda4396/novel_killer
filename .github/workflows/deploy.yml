@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Deploy to server
+    - name: Deploy to server (CentOS 9)
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -19,57 +19,29 @@ jobs:
         envs: DEEPSEEK_API_KEY,RIGHTCODE_API_KEY
         script: |
           set -e
+          echo "=== 开始部署到 CentOS 9 ==="
           
-          # 检测操作系统类型
-          detect_os() {
-            if [ -f /etc/os-release ]; then
-              . /etc/os-release
-              OS=$ID
-            elif [ -f /etc/redhat-release ]; then
-              OS="centos"
-            elif [ "$(uname)" = "Darwin" ]; then
-              OS="macos"
-            else
-              OS="unknown"
-            fi
-            echo $OS
-          }
-          
-          OS=$(detect_os)
-          echo "检测到操作系统: $OS"
-          
-          # 检查是否需要首次部署
+          # 首次部署：安装依赖和克隆代码
           if [ ! -d "/opt/novelops" ]; then
-            echo "=== 首次部署，正在初始化 ==="
+            echo "=== 首次部署初始化 ==="
             
-            # 安装系统依赖（根据操作系统类型）
-            if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
-              sudo apt update -y
-              sudo apt install -y python3 python3-pip python3-venv nginx git
-            elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ] || [ "$OS" = "fedora" ]; then
-              sudo yum install -y python3 python3-pip nginx git || sudo dnf install -y python3 python3-pip nginx git
-              sudo yum install -y python3-virtualenv || sudo dnf install -y python3-virtualenv
-            elif [ "$OS" = "macos" ]; then
-              brew install python3 nginx git || true
-            else
-              echo "未知操作系统，跳过系统依赖安装，假设已安装"
-            fi
+            # CentOS 9 安装依赖
+            sudo dnf install -y epel-release || true
+            sudo dnf install -y python3 python3-pip nginx git
+            sudo dnf install -y python3-virtualenv || true
             
-            # 创建 novelops 用户（如果不存在且不是macOS）
-            if [ "$OS" != "macos" ] && ! id -u novelops > /dev/null 2>&1; then
+            # 创建 novelops 用户
+            if ! id -u novelops > /dev/null 2>&1; then
               sudo useradd -m -s /bin/bash novelops
             fi
             
             # 克隆代码
             sudo git clone https://github.com/codingpanda4396/novel_killer.git /opt/novelops
-            if [ "$OS" != "macos" ]; then
-              sudo chown -R novelops:novelops /opt/novelops
-            fi
+            sudo chown -R novelops:novelops /opt/novelops
             
-            # 切换到应用目录
             cd /opt/novelops
             
-            # 创建虚拟环境并安装依赖
+            # 创建虚拟环境
             python3 -m venv .venv
             source .venv/bin/activate
             pip install -r requirements.txt
@@ -77,71 +49,51 @@ jobs:
             # 初始化索引
             python -m novelops.cli index
             
-            # 配置 systemd 服务（仅适用于支持systemd的系统）
-            if [ -f "/etc/systemd/system" ] && [ "$OS" != "macos" ]; then
-              sudo cp deploy/novelops.service /etc/systemd/system/
-              
-              # 替换 API Key（如果提供了）
-              if [ -n "$DEEPSEEK_API_KEY" ]; then
-                sudo sed -i "s|your_deepseek_api_key_here|$DEEPSEEK_API_KEY|g" /etc/systemd/system/novelops.service
-              fi
-              if [ -n "$RIGHTCODE_API_KEY" ]; then
-                sudo sed -i "s|your_rightcode_api_key_here|$RIGHTCODE_API_KEY|g" /etc/systemd/system/novelops.service
-              fi
-              
-              # 重载 systemd 并启动服务
-              sudo systemctl daemon-reload
-              sudo systemctl enable novelops
-              sudo systemctl start novelops
-            elif [ "$OS" = "macos" ]; then
-              # macOS 使用 launchd 或其他方式，这里先跳过
-              echo "macOS 系统，请手动启动服务: source .venv/bin/activate && python -m novelops.cli serve"
+            # 配置 systemd 服务
+            sudo cp deploy/novelops.service /etc/systemd/system/
+            
+            # 替换 API Key
+            if [ -n "$DEEPSEEK_API_KEY" ]; then
+              sudo sed -i "s|your_deepseek_api_key_here|$DEEPSEEK_API_KEY|g" /etc/systemd/system/novelops.service
+            fi
+            if [ -n "$RIGHTCODE_API_KEY" ]; then
+              sudo sed -i "s|your_rightcode_api_key_here|$RIGHTCODE_API_KEY|g" /etc/systemd/system/novelops.service
             fi
             
-            # 配置 nginx（如果需要且不是macOS）
-            if [ "$OS" != "macos" ] && [ -f "deploy/nginx.conf" ]; then
+            # 启动服务
+            sudo systemctl daemon-reload
+            sudo systemctl enable novelops
+            sudo systemctl start novelops
+            
+            # 配置 nginx
+            if [ -f "deploy/nginx.conf" ]; then
+              sudo cp deploy/nginx.conf /etc/nginx/conf.d/novelops.conf 2>/dev/null || \
               sudo cp deploy/nginx.conf /etc/nginx/sites-available/novelops 2>/dev/null || true
-              sudo ln -sf /etc/nginx/sites-available/novelops /etc/nginx/sites-enabled/ 2>/dev/null || true
               sudo nginx -t && sudo systemctl reload nginx || true
             fi
             
             echo "=== 首次部署完成 ==="
-            
           else
+            # 更新部署
             echo "=== 更新部署 ==="
-            
             cd /opt/novelops
             
-            # 停止服务（如果是systemd系统）
-            if [ -f "/etc/systemd/system/novelops.service" ]; then
-              sudo systemctl stop novelops || true
-            fi
+            sudo systemctl stop novelops || true
             
-            # 拉取最新代码
             sudo git pull origin main || sudo git pull origin master
-            if [ "$OS" != "macos" ]; then
-              sudo chown -R novelops:novelops /opt/novelops
-            fi
+            sudo chown -R novelops:novelops /opt/novelops
             
-            # 更新依赖
             source .venv/bin/activate
             pip install -r requirements.txt
             
-            # 重建索引
             python -m novelops.cli index
             
-            # 重启服务
-            if [ -f "/etc/systemd/system/novelops.service" ]; then
-              sudo systemctl start novelops
-              sudo systemctl reload nginx || true
-            fi
+            sudo systemctl start novelops
+            sudo systemctl reload nginx || true
             
             echo "=== 更新部署完成 ==="
           fi
           
           # 检查服务状态
-          if [ -f "/etc/systemd/system/novelops.service" ]; then
-            sudo systemctl status novelops --no-pager || true
-          else
-            echo "服务状态检查跳过（非systemd系统）"
-          fi
+          sudo systemctl status novelops --no-pager || echo "服务状态检查完成"
+          echo "=== 部署流程结束 ==="
