@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ project.name }} - NovelOps</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      color: #202124;
+      background: #f7f7f5;
+    }
+    header {
+      background: #1f2933;
+      color: white;
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logout-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .status-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 32px;
+    }
+    .meta {
+      color: #667085;
+      font-size: 15px;
+      margin-bottom: 20px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .stat-item {
+      background: #f9fafb;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    .stat-label {
+      color: #667085;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 600;
+      color: #1f2933;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .action-btn {
+      background: white;
+      border: 2px solid #0f5f74;
+      color: #0f5f74;
+      padding: 14px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: #0f5f74;
+      color: white;
+    }
+    .action-btn.primary {
+      background: #0f5f74;
+      color: white;
+    }
+    .action-btn.primary:hover {
+      background: #0d4d5f;
+    }
+    .custom-panel {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .custom-panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+    }
+    .ask-row {
+      display: flex;
+      gap: 8px;
+    }
+    .ask-row input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #c9d1d9;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+    button {
+      border: 0;
+      border-radius: 6px;
+      background: #0f5f74;
+      color: white;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    .result-box {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f9fafb;
+      border-radius: 6px;
+      line-height: 1.6;
+      display: none;
+    }
+    .result-box.show {
+      display: block;
+    }
+    .loading {
+      color: #667085;
+    }
+    .error {
+      color: #dc2626;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>NovelOps - {{ project.name }}</div>
+    <form method="post" action="/logout" style="margin: 0;">
+      <button type="submit" class="logout-btn">退出</button>
+    </form>
+  </header>
+  <main>
+    <div class="status-card">
+      <h1>{{ project.name }}</h1>
+      <div class="meta">{{ project.genre or "未分类" }}</div>
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-label">已完成章节</div>
+          <div class="stat-value">{{ chapter_count }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">下一章</div>
+          <div class="stat-value">{{ next_chapter }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">待修订</div>
+          <div class="stat-value">{{ open_queue }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">最近审稿</div>
+          <div class="stat-value">{{ latest_review_score or "无" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn primary" onclick="quickAction('生成下一章')">
+        生成下一章
+      </button>
+      <button class="action-btn" onclick="quickAction('审稿最新章节')">
+        审稿最新章
+      </button>
+      <button class="action-btn" onclick="quickAction('查看待修订章节')">
+        查看待修订
+      </button>
+      <button class="action-btn" onclick="quickAction('导出已完成章节')">
+        导出章节
+      </button>
+      <button class="action-btn" onclick="quickAction('下一步建议')">
+        下一步建议
+      </button>
+    </div>
+
+    <div class="custom-panel">
+      <h2>自定义操作</h2>
+      <form data-ask-form>
+        <div class="ask-row">
+          <input name="message" placeholder="输入您的需求，例如：查看第10章详情" autocomplete="off">
+          <button type="submit">发送</button>
+        </div>
+      </form>
+      <div class="result-box" id="result"></div>
+    </div>
+  </main>
+
+  <script>
+    async function quickAction(message) {
+      await submitAsk(message, false);
+    }
+
+    async function submitAsk(message, execute) {
+      const result = document.getElementById("result");
+      result.className = "result-box show loading";
+      result.innerHTML = "处理中...";
+
+      try {
+        const response = await fetch("/api/ask", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({message, execute: Boolean(execute)})
+        });
+        const data = await response.json();
+
+        result.className = "result-box show";
+        result.innerHTML = "";
+
+        const text = document.createElement("div");
+        text.textContent = data.message || "无结果";
+        result.appendChild(text);
+
+        if (data.requires_confirmation) {
+          const actions = document.createElement("pre");
+          actions.textContent = (data.actions || []).map(
+            action => action.command || action.intent
+          ).join("\n");
+          result.appendChild(actions);
+
+          const button = document.createElement("button");
+          button.textContent = "确认执行";
+          button.style.marginTop = "10px";
+          button.onclick = () => submitAsk(message, true);
+          result.appendChild(button);
+        }
+
+        if (data.errors && data.errors.length > 0) {
+          result.className = "result-box show error";
+        }
+      } catch (error) {
+        result.className = "result-box show error";
+        result.textContent = "请求失败: " + error.message;
+      }
+    }
+
+    document.querySelector("[data-ask-form]").addEventListener("submit", event => {
+      event.preventDefault();
+      const input = event.target.querySelector("input[name='message']");
+      submitAsk(input.value, false);
+    });
+  </script>
+</body>
+</html>
+
+
+
+

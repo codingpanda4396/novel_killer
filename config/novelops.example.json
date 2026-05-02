@@ -3,7 +3,14 @@
   "db_path": "runtime/novelops.sqlite3",
   "web": {
     "host": "127.0.0.1",
-    "port": 8787
+    "port": 8787,
+    "session_secret": "CHANGE_THIS_IN_PRODUCTION"
+  },
+  "invites": {
+    "TEST-USER-001": {
+      "project": "life_balance",
+      "label": "内测用户001"
+    }
   },
   "require_manual_publish_confirmation": true
 }

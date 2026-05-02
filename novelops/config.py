@@ -61,3 +61,28 @@ def load_project_path(project_path: Path) -> dict[str, Any]:
 
 def threshold(project_config: dict[str, Any], key: str = "chapter") -> float:
     return float(project_config.get("review_thresholds", {}).get(key, 80))
+
+
+def load_invites() -> dict[str, dict[str, str]]:
+    """加载邀请码配置"""
+    app_cfg = load_app_config()
+    return app_cfg.get("invites", {})
+
+
+def validate_invite_code(code: str) -> dict[str, str] | None:
+    """验证邀请码，返回邀请码信息或 None"""
+    invites = load_invites()
+    return invites.get(code)
+
+
+def get_session_secret() -> str:
+    """获取 session 密钥"""
+    app_cfg = load_app_config()
+    secret = app_cfg.get("web", {}).get("session_secret")
+    if not secret or secret == "CHANGE_THIS_IN_PRODUCTION":
+        import os
+        if os.environ.get("NOVELOPS_ENV") == "production":
+            raise ConfigError("生产环境必须配置 web.session_secret")
+        # 开发环境使用默认值
+        return "dev-secret-key-not-for-production"
+    return str(secret)

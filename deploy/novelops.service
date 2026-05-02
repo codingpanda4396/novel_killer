@@ -1,0 +1,19 @@
+[Unit]
+Description=NovelOps Web Service
+After=network.target
+
+[Service]
+Type=simple
+User=novelops
+Group=novelops
+WorkingDirectory=/opt/novelops
+Environment="PATH=/opt/novelops/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="NOVELOPS_ENV=production"
+Environment="DEEPSEEK_API_KEY=your_deepseek_api_key_here"
+Environment="RIGHTCODE_API_KEY=your_rightcode_api_key_here"
+ExecStart=/opt/novelops/.venv/bin/python3 -m novelops.cli serve --host 127.0.0.1 --port 8787
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
