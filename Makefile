@@ -1,48 +1,58 @@
-.PHONY: help check status init-config new-chapter context-pack run-stage run-full run-batch
+.PHONY: help check status review-chapter review-range publish-check plan-next generate scout test
+
+PROJECT ?= life_balance
 
 help:
-	@python3 scripts/novel_workflow.py --help
+	@python3 -m novelops.cli --help
 
 check:
-	@python3 scripts/novel_workflow.py check
+	@python3 -m novelops.cli --project "$(PROJECT)" check
+	@python3 -m unittest discover -s tests
 
 status:
-	@python3 scripts/novel_workflow.py status
+	@python3 -m novelops.cli --project "$(PROJECT)" status
 
-init-config:
-	@python3 scripts/novel_workflow.py init-config
-
-new-chapter:
-	@if [ -z "$(N)" ] || [ -z "$(TITLE)" ]; then \
-		echo 'Usage: make new-chapter N=31 TITLE=章节标题'; \
+review-chapter:
+	@if [ -z "$(CH)" ]; then \
+		echo 'Usage: make review-chapter PROJECT=life_balance CH=1'; \
 		exit 1; \
 	fi
-	@python3 scripts/novel_workflow.py new-chapter "$(N)" "$(TITLE)"
+	@python3 -m novelops.cli --project "$(PROJECT)" review-chapter "$(CH)"
 
-context-pack:
-	@if [ -z "$(N)" ]; then \
-		echo 'Usage: make context-pack N=31'; \
+review-range:
+	@if [ -z "$(START)" ] || [ -z "$(END)" ]; then \
+		echo 'Usage: make review-range PROJECT=life_balance START=1 END=50'; \
 		exit 1; \
 	fi
-	@python3 scripts/novel_workflow.py context-pack "$(N)"
+	@python3 -m novelops.cli --project "$(PROJECT)" review-range "$(START)" "$(END)"
 
-run-stage:
-	@if [ -z "$(STAGE)" ]; then \
-		echo 'Usage: make run-stage STAGE=draft N=31 TITLE=章节标题'; \
+publish-check:
+	@if [ -z "$(START)" ] || [ -z "$(END)" ]; then \
+		echo 'Usage: make publish-check PROJECT=life_balance START=1 END=50'; \
 		exit 1; \
 	fi
-	@python3 scripts/novel_workflow.py run-stage "$(STAGE)" $(if $(N),--number "$(N)") $(if $(TITLE),--title "$(TITLE)")
+	@python3 -m novelops.cli --project "$(PROJECT)" publish-check "$(START)" "$(END)"
 
-run-full:
-	@if [ -z "$(N)" ] || [ -z "$(TITLE)" ]; then \
-		echo 'Usage: make run-full N=31 TITLE=章节标题'; \
+plan-next:
+	@if [ -z "$(CH)" ]; then \
+		echo 'Usage: make plan-next PROJECT=life_balance CH=51'; \
 		exit 1; \
 	fi
-	@python3 scripts/novel_workflow.py run-full --number "$(N)" --title "$(TITLE)"
+	@python3 -m novelops.cli --project "$(PROJECT)" plan-next "$(CH)"
 
-run-batch:
-	@if [ -z "$(START)" ] || [ -z "$(COUNT)" ]; then \
-		echo 'Usage: make run-batch START=31 COUNT=10 [CHECK=1] [RESUME=1] [DRY_RUN=1]'; \
+generate:
+	@if [ -z "$(CH)" ]; then \
+		echo 'Usage: make generate PROJECT=life_balance CH=51'; \
 		exit 1; \
 	fi
-	@python3 scripts/novel_workflow.py run-batch --start "$(START)" --count "$(COUNT)" $(if $(CHECK),--check) $(if $(RESUME),--resume) $(if $(DRY_RUN),--dry-run)
+	@if [ "$(NO_LLM)" = "1" ]; then \
+		python3 -m novelops.cli --project "$(PROJECT)" generate "$(CH)" --no-llm; \
+	else \
+		python3 -m novelops.cli --project "$(PROJECT)" generate "$(CH)"; \
+	fi
+
+scout:
+	@python3 -m novelops.cli --project "$(PROJECT)" scout
+
+test:
+	@python3 -m unittest discover -s tests

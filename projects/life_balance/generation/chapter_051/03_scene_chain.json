@@ -1,0 +1,20 @@
+{
+  "chapter": 51,
+  "scenes": [
+    {
+      "name": "aftershock",
+      "purpose": "展示第一卷后果",
+      "conflict": "平静被打断"
+    },
+    {
+      "name": "new_case",
+      "purpose": "引入第二卷问题",
+      "conflict": "旧规则无法解释"
+    },
+    {
+      "name": "hook",
+      "purpose": "制造追读",
+      "conflict": "主角必须介入"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "chapter": 45,
+  "score": 86.0,
+  "threshold": 80.0,
+  "passed": true,
+  "issues": [
+    "篇幅偏短，低于连载章节的稳定承载量。"
+  ],
+  "recommendations": [
+    "补足场景推进、反应链和章尾钩子。"
+  ]
+}

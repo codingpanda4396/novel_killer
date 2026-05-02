@@ -1,0 +1,59 @@
+{
+  "defaults": {
+    "provider": "openai-compatible",
+    "api_key_env": "OPENAI_API_KEY",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "temperature": 0.4,
+    "max_tokens": 4000,
+    "timeout": 120,
+    "retries": 1
+  },
+  "planner": {
+    "model": "gpt-4o-mini"
+  },
+  "generator": {
+    "model": "gpt-4o"
+  },
+  "chapter_intent": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "max_tokens": 2000
+  },
+  "scene_chain": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.3,
+    "max_tokens": 2500
+  },
+  "draft_v1": {
+    "model": "gpt-4o",
+    "temperature": 0.8,
+    "max_tokens": 7000
+  },
+  "commercial_rewrite": {
+    "model": "gpt-4o",
+    "temperature": 0.6,
+    "max_tokens": 7000
+  },
+  "humanize": {
+    "model": "gpt-4o",
+    "temperature": 0.5,
+    "max_tokens": 7000
+  },
+  "reviewer": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.1,
+    "max_tokens": 3000
+  },
+  "revision": {
+    "model": "gpt-4o",
+    "temperature": 0.5,
+    "max_tokens": 7000
+  },
+  "scout": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.2,
+    "max_tokens": 3000
+  },
+  "max_revision_attempts": 2
+}

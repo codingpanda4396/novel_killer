@@ -1,0 +1,533 @@
+{
+  "project": "life_balance",
+  "start": 1,
+  "end": 50,
+  "checked": 50,
+  "passed": 49,
+  "failed": 1,
+  "average_score": 94.2,
+  "revision_queue": [
+    48
+  ],
+  "chapters": [
+    {
+      "chapter": 1,
+      "score": 85.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "核心卖点词汇出现不足，章节与项目题材绑定偏弱。"
+      ],
+      "recommendations": []
+    },
+    {
+      "chapter": 2,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 3,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 4,
+      "score": 88.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "出现平台正文不应包含的作者提示或尾注。"
+      ],
+      "recommendations": []
+    },
+    {
+      "chapter": 5,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 6,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 7,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 8,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 9,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 10,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 11,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 12,
+      "score": 90.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "核心卖点词汇出现不足，章节与项目题材绑定偏弱。"
+      ],
+      "recommendations": []
+    },
+    {
+      "chapter": 13,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 14,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 15,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 16,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 17,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 18,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 19,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 20,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 21,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 22,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 23,
+      "score": 83.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "出现平台正文不应包含的作者提示或尾注。"
+      ],
+      "recommendations": []
+    },
+    {
+      "chapter": 24,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 25,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 26,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 27,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 28,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 29,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 30,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 31,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 32,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 33,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 34,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 35,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 36,
+      "score": 85.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "核心卖点词汇出现不足，章节与项目题材绑定偏弱。"
+      ],
+      "recommendations": []
+    },
+    {
+      "chapter": 37,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 38,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 39,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 40,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 41,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 42,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 43,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 44,
+      "score": 95.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    },
+    {
+      "chapter": 45,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 46,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 47,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 48,
+      "score": 76.0,
+      "threshold": 80.0,
+      "passed": false,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。",
+        "核心卖点词汇出现不足，章节与项目题材绑定偏弱。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 49,
+      "score": 86.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [
+        "篇幅偏短，低于连载章节的稳定承载量。"
+      ],
+      "recommendations": [
+        "补足场景推进、反应链和章尾钩子。"
+      ]
+    },
+    {
+      "chapter": 50,
+      "score": 100.0,
+      "threshold": 80.0,
+      "passed": true,
+      "issues": [],
+      "recommendations": [
+        "保留现有节奏，复核连续性细节后可进入候选池。"
+      ]
+    }
+  ]
+}

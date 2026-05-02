@@ -1,0 +1,10 @@
+{
+  "chapter": 12,
+  "score": 90.0,
+  "threshold": 80.0,
+  "passed": true,
+  "issues": [
+    "核心卖点词汇出现不足，章节与项目题材绑定偏弱。"
+  ],
+  "recommendations": []
+}

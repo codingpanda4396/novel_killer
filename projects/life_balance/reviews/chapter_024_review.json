@@ -1,0 +1,10 @@
+{
+  "chapter": 24,
+  "score": 100.0,
+  "threshold": 80.0,
+  "passed": true,
+  "issues": [],
+  "recommendations": [
+    "保留现有节奏，复核连续性细节后可进入候选池。"
+  ]
+}

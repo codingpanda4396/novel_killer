@@ -1,0 +1,32 @@
+{
+  "chapter": 51,
+  "score": 70.0,
+  "threshold": 80.0,
+  "passed": false,
+  "issues": [
+    "篇幅偏短，低于连载章节的稳定承载量。",
+    "段落密度不足，可能缺少可读的节奏切分。"
+  ],
+  "recommendations": [
+    "补足场景推进、反应链和章尾钩子。",
+    "增加角色对话或即时冲突，避免纯叙述推进。"
+  ],
+  "scores": {
+    "hook": 70.0,
+    "conflict": 70.0,
+    "consistency": 70.0,
+    "continuity": 70.0,
+    "ai_trace": 70.0,
+    "retention": 70.0,
+    "risk": 70.0
+  },
+  "revision_tasks": [
+    "补足场景推进、反应链和章尾钩子。",
+    "增加角色对话或即时冲突，避免纯叙述推进。"
+  ],
+  "suggested_action": "revise",
+  "model": "rules",
+  "attempt": 0,
+  "llm_used": false,
+  "fallback_reason": "no_llm"
+}

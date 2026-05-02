@@ -1,0 +1,10 @@
+{
+  "chapter": 23,
+  "score": 83.0,
+  "threshold": 80.0,
+  "passed": true,
+  "issues": [
+    "出现平台正文不应包含的作者提示或尾注。"
+  ],
+  "recommendations": []
+}

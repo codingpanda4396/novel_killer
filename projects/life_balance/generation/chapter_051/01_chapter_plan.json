@@ -1,0 +1,16 @@
+{
+  "chapter": 51,
+  "title": "第051章候选计划",
+  "volume": 2,
+  "objective": "承接第050章后的新卷开局，提出新的外部压力和余额规则疑问。",
+  "hooks": [
+    "新能力者",
+    "规则代价",
+    "白塔残留线索"
+  ],
+  "required_context": [
+    "bible",
+    "state",
+    "volume_01_corpus"
+  ]
+}

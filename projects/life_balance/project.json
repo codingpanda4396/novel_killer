@@ -1,0 +1,37 @@
+{
+  "id": "life_balance",
+  "name": "我能看见人生余额开局救下白月光",
+  "genre": "都市异能悬疑爽文",
+  "target_platform": "中文网文连载平台",
+  "chapter_length": {
+    "min": 2000,
+    "target": 2500,
+    "max": 3200
+  },
+  "directories": {
+    "bible": "bible",
+    "outlines": "outlines",
+    "corpus": "corpus",
+    "state": "state",
+    "generation": "generation",
+    "reviews": "reviews",
+    "intelligence": "intelligence",
+    "publish": "publish"
+  },
+  "review_thresholds": {
+    "chapter": 80,
+    "publish": 80
+  },
+  "current_volume": {
+    "number": 2,
+    "status": "planning",
+    "last_completed_chapter": 50,
+    "next_chapter": 51
+  },
+  "migration": {
+    "source": "v1",
+    "volume_01_status": "readonly_corpus",
+    "notes": "第一卷正文作为参考语料和发布检查对象，不再由 v1 流程维护。"
+  }
+}
+

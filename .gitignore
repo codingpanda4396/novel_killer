@@ -1,4 +1,5 @@
 # Local model/API configuration.
+config/models.json
 config/workflow.local.json
 
 # Runtime scratch files.
