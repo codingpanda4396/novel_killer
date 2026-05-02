@@ -332,13 +332,18 @@ class NovelOpsTests(unittest.TestCase):
     def test_web_routes_return_200(self) -> None:
         try:
             from fastapi.testclient import TestClient
+            from novelops.session import SESSION_COOKIE_NAME, get_serializer
             from novelops.web import create_app
         except Exception as exc:  # pragma: no cover
             self.skipTest(f"FastAPI test dependencies unavailable: {exc}")
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {"NOVELOPS_DB": str(Path(tmp) / "novelops.sqlite3")}, clear=False):
+            db_path = Path(tmp) / "novelops.sqlite3"
+            with patch.dict(os.environ, {"NOVELOPS_DB": str(db_path)}, clear=False):
                 rebuild_index("life_balance")
+                from novelops.user import add_user_project
+                add_user_project("user1", "life_balance", is_default=True, db_path=db_path)
                 client = TestClient(create_app())
+                client.cookies.set(SESSION_COOKIE_NAME, get_serializer().dumps({"user_id": "user1"}))
                 self.assertEqual(client.get("/").status_code, 200)
                 self.assertEqual(client.get("/projects/life_balance").status_code, 200)
                 self.assertEqual(client.get("/projects/life_balance/chapters/1").status_code, 200)
@@ -409,13 +414,18 @@ class NovelOpsTests(unittest.TestCase):
     def test_web_api_ask_and_forms(self) -> None:
         try:
             from fastapi.testclient import TestClient
+            from novelops.session import SESSION_COOKIE_NAME, get_serializer
             from novelops.web import create_app
         except Exception as exc:  # pragma: no cover
             self.skipTest(f"FastAPI test dependencies unavailable: {exc}")
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {"NOVELOPS_DB": str(Path(tmp) / "novelops.sqlite3")}, clear=False):
+            db_path = Path(tmp) / "novelops.sqlite3"
+            with patch.dict(os.environ, {"NOVELOPS_DB": str(db_path)}, clear=False):
                 rebuild_index("life_balance")
+                from novelops.user import add_user_project
+                add_user_project("user1", "life_balance", is_default=True, db_path=db_path)
                 client = TestClient(create_app())
+                client.cookies.set(SESSION_COOKIE_NAME, get_serializer().dumps({"user_id": "user1"}))
                 def fake_ask(message, default_project=None, execute=False):
                     from novelops.assistant import AssistantIntent, AssistantResponse
 
