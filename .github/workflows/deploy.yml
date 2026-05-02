@@ -37,38 +37,34 @@ jobs:
             env -i HOME=$HOME PATH=$PATH git pull origin main || env -i HOME=$HOME PATH=$PATH git pull origin master
           fi
           
-          # 检查并安装 Python 3.10
-          if ! command -v python3.10 &> /dev/null; then
-            echo "安装 Python 3.10..."
-            sudo dnf install -y python3.10 python3.10-pip || sudo dnf install -y python310
-          fi
-          
-          # 删除旧的虚拟环境，用 Python 3.10 重建
+          # 确保虚拟环境使用 Python 3.10
           if [ -d ".venv" ]; then
-            rm -rf .venv
+            # 检查当前 venv Python 版本
+            VENV_PYTHON_VER=$(.venv/bin/python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
+            if [ "$(echo "$VENV_PYTHON_VER < 3.7" | bc)" -eq 1 ]; then
+              echo "重建虚拟环境 (Python 3.10)..."
+              rm -rf .venv
+            fi
           fi
           
-          echo "创建虚拟环境..."
-          python3.10 -m venv .venv
+          if [ ! -d ".venv" ]; then
+            echo "创建 Python 3.10 虚拟环境..."
+            python3.10 -m venv .venv
+          fi
           
           source .venv/bin/activate
-          
-          # 升级 pip
           pip install --upgrade pip
-          
-          # 安装依赖
-          echo "安装依赖..."
           pip install -r requirements.txt
           
-          # 初始化
           python -m novelops.cli index || true
           
           echo "部署完成"
           ls -la
           EOF
           
-          # 更新 systemd service 使用新的 Python 路径
-          sudo sed -i 's|/opt/novelOps/novel_killer/.venv/bin/python3|/opt/novelOps/novel_killer/.venv/bin/python3.10|g' /etc/systemd/system/novelops.service
+          # 确保 service 文件使用 python3.10
+          sudo sed -i 's|/opt/novelOps/novel_killer/.venv/bin/python3 |/opt/novelOps/novel_killer/.venv/bin/python3.10 |g' /etc/systemd/system/novelops.service
+          sudo sed -i 's|/opt/novelOps/novel_killer/.venv/bin/python3$|/opt/novelOps/novel_killer/.venv/bin/python3.10|g' /etc/systemd/system/novelops.service
           
           sudo systemctl daemon-reload
           sudo systemctl restart novelops
