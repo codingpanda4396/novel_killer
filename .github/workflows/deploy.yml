@@ -19,44 +19,45 @@ jobs:
         script: |
           set -ex
           
-          # 修复代理问题 - 删除所有代理相关配置
-          sudo find /etc -name "*.conf" -o -name "*.sh" 2>/dev/null | xargs sudo grep -l "proxy\|PROXY" 2>/dev/null | while read f; do
-            sudo sed -i '/proxy\|PROXY/d' "$f" 2>/dev/null || true
+          # 暴力清除所有系统级代理配置
+          echo "=== 清除代理配置 ==="
+          sudo find /etc -type f \( -name "*.conf" -o -name "*.sh" -o -name "*.bashrc" \) 2>/dev/null | while read f; do
+            sudo grep -q "proxy\|PROXY" "$f" 2>/dev/null && sudo sed -i '/proxy\|PROXY/d' "$f" 2>/dev/null || true
           done
           sudo sed -i '/proxy\|PROXY/d' /etc/environment 2>/dev/null || true
+          sudo rm -f /etc/profile.d/*proxy* 2>/dev/null || true
           
-          # 以 novelops 执行，明确取消代理
+          # 以 novelops 执行
           sudo su - novelops << 'EOF'
           set -ex
           
-          # 取消所有代理
+          # 清除用户级代理
           unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ftp_proxy FTP_PROXY
           export no_proxy=*
           export NO_PROXY=*
           
-          # 清除 git 代理
-          git config --global --unset http.proxy || true
-          git config --global --unset https.proxy || true
-          git config --global http.proxy "" || true
-          git config --global https.proxy "" || true
-          
-          # 清除环境变量中的代理
+          # 清除 .bashrc .profile 中的代理
           sed -i '/proxy\|PROXY/d' ~/.bashrc ~/.profile ~/.bash_profile 2>/dev/null || true
+          
+          # 清除 git 代理
+          git config --global --unset-all http.proxy 2>/dev/null || true
+          git config --global --unset-all https.proxy 2>/dev/null || true
+          
+          # 验证代理已清除
+          echo "当前环境变量:"
+          env | grep -i proxy || echo "无代理设置"
           
           cd /opt/novelOps
           
-          # 测试网络
-          curl -s --connect-timeout 3 https://github.com > /dev/null && echo "网络正常" || echo "网络异常"
-          
+          # 使用 env -i 清除所有继承的环境变量
           if [ ! -d "novel_killer/.git" ]; then
             echo "克隆代码..."
-            # 明确不使用代理
-            env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY git clone https://github.com/codingpanda4396/novel_killer.git
+            env -i HOME=$HOME PATH=/usr/local/bin:/usr/bin:/bin git clone https://github.com/codingpanda4396/novel_killer.git
             cd novel_killer
           else
             echo "更新代码..."
             cd novel_killer
-            env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY git pull origin main || env -u http_proxy -u https_proxy git pull origin master
+            env -i HOME=$HOME PATH=/usr/local/bin:/usr/bin:/bin git pull origin main || env -i HOME=$HOME PATH=/usr/local/bin:/usr/bin:/bin git pull origin master
           fi
           
           echo "安装依赖..."
@@ -66,7 +67,6 @@ jobs:
           source .venv/bin/activate
           pip install -r requirements.txt
           
-          echo "初始化..."
           python -m novelops.cli index || true
           
           ls -la
