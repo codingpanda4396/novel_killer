@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
 from .config import ConfigError, default_project_id, load_app_config, load_project, threshold
 from .assistant import ask
 from .corpus import list_chapters
+from .framework_importer import import_framework_project, preview_framework_import
 from .generator import generate
 from .indexer import rebuild_index
 from .paths import project_dir, rel
@@ -14,7 +16,7 @@ from .planner import plan_next
 from .prepare import prepare_project_interactive
 from .project import STANDARD_DIRS, init_project
 from .publisher import publish_check
-from .readiness import check_project_readiness
+from .readiness import check_framework_readiness, check_project_readiness
 from .reviewer import review_chapter
 from .scout import scout
 
@@ -156,7 +158,7 @@ def cmd_readiness(args: argparse.Namespace) -> int:
     """检查项目开书准备度"""
     cfg = load_project(args.project)
     project_path = project_dir(args.project)
-    report = check_project_readiness(project_path, cfg)
+    report = check_framework_readiness(project_path, cfg) if getattr(args, "framework", False) else check_project_readiness(project_path, cfg)
     
     print(f"=== {cfg['name']} 开书准备度检查 ===\n")
     
@@ -189,6 +191,38 @@ def cmd_readiness(args: argparse.Namespace) -> int:
         print(f"⚠ 有 {report.warnings} 个建议项可以进一步完善")
     
     return 0 if report.ready else 1
+
+
+def cmd_import_framework(args: argparse.Namespace) -> int:
+    """从 ChatGPT Markdown 框架导入新书项目。"""
+    markdown = _read_framework_input(args)
+    if args.dry_run or not args.yes:
+        preview = preview_framework_import(
+            args.project_id,
+            markdown,
+            name=args.name,
+            target_platform=args.target_platform,
+        )
+        print(json.dumps(preview.summary(), ensure_ascii=False, indent=2))
+        if not args.dry_run and not args.yes:
+            print("\n未创建项目。确认创建请加 --yes。")
+        return 0
+
+    preview = import_framework_project(
+        args.project_id,
+        markdown,
+        name=args.name,
+        target_platform=args.target_platform,
+    )
+    print(f"Created project: {rel(project_dir(args.project_id))}")
+    print(json.dumps(preview.summary(), ensure_ascii=False, indent=2))
+    return 0
+
+
+def _read_framework_input(args: argparse.Namespace) -> str:
+    if args.framework_file:
+        return Path(args.framework_file).read_text(encoding="utf-8")
+    return sys.stdin.read()
 
 
 def cmd_prepare_project(args: argparse.Namespace) -> int:
@@ -235,7 +269,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("status")
     p.add_argument("--readiness", action="store_true", help="显示开书准备度检查")
     p.set_defaults(func=cmd_status)
-    sub.add_parser("readiness").set_defaults(func=cmd_readiness)
+    p = sub.add_parser("readiness")
+    p.add_argument("--framework", action="store_true", help="执行框架导入专项准备度检查")
+    p.set_defaults(func=cmd_readiness)
+    p = sub.add_parser("import-framework", help="从 ChatGPT Markdown 框架导入新书项目")
+    p.add_argument("project_id")
+    p.add_argument("--framework-file")
+    p.add_argument("--name")
+    p.add_argument("--target-platform")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--yes", action="store_true", help="确认创建项目；不加时只预览")
+    p.set_defaults(func=cmd_import_framework)
     p = sub.add_parser("prepare-project", help="准备新书项目（生成核心设定和大纲）")
     p.add_argument("--yes", action="store_true", help="跳过确认")
     p.set_defaults(func=cmd_prepare_project)

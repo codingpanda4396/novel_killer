@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from .assistant import ask
 from .config import validate_invite_code
+from .framework_importer import import_framework_project, preview_framework_import
 from .indexer import connect, rebuild_index
 from .paths import ROOT
 from .project import init_project
@@ -30,6 +31,14 @@ templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates"))
 class AskRequest(BaseModel):
     message: str
     project: str | None = None
+    execute: bool = False
+
+
+class ImportFrameworkRequest(BaseModel):
+    project_id: str
+    framework_markdown: str
+    name: str | None = None
+    target_platform: str | None = None
     execute: bool = False
 
 
@@ -101,6 +110,11 @@ def create_app() -> FastAPI:
         require_user(request)
         return templates.TemplateResponse(request, "project_new.html", {"error": None})
 
+    @app.get("/projects/import-framework", response_class=HTMLResponse)
+    def import_framework_form(request: Request):
+        require_user(request)
+        return templates.TemplateResponse(request, "import_framework.html", {"error": None})
+
     @app.post("/projects/new")
     def project_new_submit(
         request: Request,
@@ -132,6 +146,30 @@ def create_app() -> FastAPI:
                 "project_new.html",
                 {"error": f"创建项目失败: {str(e)}"}
             )
+
+    @app.post("/api/import-framework")
+    def api_import_framework(request: Request, payload: ImportFrameworkRequest) -> dict:
+        user_id = require_user(request)
+        try:
+            if payload.execute:
+                result = import_framework_project(
+                    payload.project_id,
+                    payload.framework_markdown,
+                    name=payload.name,
+                    target_platform=payload.target_platform,
+                )
+                add_user_project(user_id, payload.project_id, is_default=True)
+                rebuild_index(payload.project_id)
+                return {"status": "created", "redirect_url": f"/projects/{payload.project_id}", **result.summary()}
+            preview = preview_framework_import(
+                payload.project_id,
+                payload.framework_markdown,
+                name=payload.name,
+                target_platform=payload.target_platform,
+            )
+            return {"status": "preview", **preview.summary()}
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/projects/{project_id}/set-default")
     def project_set_default(request: Request, project_id: str):

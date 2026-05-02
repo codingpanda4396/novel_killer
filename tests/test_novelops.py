@@ -15,10 +15,11 @@ from novelops.indexer import rebuild_index
 from novelops.llm import LLMClient, LLMSettings, settings_for_stage
 from novelops.config import ConfigError, load_project
 from novelops.corpus import get_chapter, list_chapters
+from novelops.framework_importer import import_framework_project, preview_framework_import
 from novelops.planner import plan_next
 from novelops.project import init_project
 from novelops.paths import project_dir
-from novelops.readiness import check_project_readiness
+from novelops.readiness import check_framework_readiness, check_project_readiness
 from novelops.reviewer import review_text
 
 
@@ -502,6 +503,138 @@ class NovelOpsTests(unittest.TestCase):
         # 应该通过准备度检查
         self.assertTrue(report.ready)
         self.assertEqual(report.critical_missing, 0)
+
+    def test_import_framework_dry_run_returns_structured_spec(self) -> None:
+        preview = preview_framework_import("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
+        self.assertEqual(preview.spec.title, "香火成神")
+        self.assertEqual(len(preview.spec.chapter_cards), 40)
+        self.assertFalse(Path("projects/xianghuo_demo").exists())
+
+    def test_import_framework_creates_project_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
+                preview = import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
+                project = Path(tmp) / "xianghuo_demo"
+                self.assertTrue((project / "project.json").is_file())
+                self.assertTrue((project / "bible" / "02_power_system.md").is_file())
+                self.assertTrue((project / "outlines" / "first_40_chapters.md").is_file())
+                self.assertTrue((project / "records" / "data_feedback.md").is_file())
+                queue_rows = [line for line in (project / "outlines" / "chapter_queue.md").read_text(encoding="utf-8").splitlines() if line.startswith("| ") and line[2].isdigit()]
+                self.assertEqual(len(queue_rows), 40)
+                config = json.loads((project / "project.json").read_text(encoding="utf-8"))
+                self.assertGreaterEqual(len(config["rubric"]["hook_terms"]), 5)
+                self.assertGreaterEqual(len(config["rubric"]["forbidden_terms"]), 5)
+                self.assertTrue(preview.readiness.ready)
+
+    def test_import_framework_rejects_existing_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
+                existing = Path(tmp) / "xianghuo_demo"
+                existing.mkdir()
+                marker = existing / "keep.txt"
+                marker.write_text("keep", encoding="utf-8")
+                with self.assertRaises(ConfigError):
+                    import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
+                self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+
+    def test_framework_readiness_fails_when_queue_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
+                import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
+                project = Path(tmp) / "xianghuo_demo"
+                (project / "outlines" / "chapter_queue.md").write_text("| 章号 | 工作标题 | 核心任务 | 必须承接 | 状态 |\n", encoding="utf-8")
+                config = json.loads((project / "project.json").read_text(encoding="utf-8"))
+                report = check_framework_readiness(project, config)
+                self.assertFalse(report.ready)
+
+    def test_framework_readiness_fails_without_first_three_payoff(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
+                import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
+                project = Path(tmp) / "xianghuo_demo"
+                queue = project / "outlines" / "chapter_queue.md"
+                queue.write_text(queue.read_text(encoding="utf-8").replace("显圣反杀", "公开胜利"), encoding="utf-8")
+                config = json.loads((project / "project.json").read_text(encoding="utf-8"))
+                report = check_framework_readiness(project, config)
+                self.assertFalse(report.ready)
+
+    def test_web_import_framework_preview_and_execute(self) -> None:
+        try:
+            from fastapi.testclient import TestClient
+            from novelops.session import SESSION_COOKIE_NAME, get_serializer
+            from novelops.web import create_app
+        except Exception as exc:  # pragma: no cover
+            self.skipTest(f"FastAPI test dependencies unavailable: {exc}")
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"NOVELOPS_DB": str(Path(tmp) / "novelops.sqlite3")}, clear=False), \
+                 patch("novelops.paths.PROJECTS_DIR", Path(tmp)), \
+                 patch("novelops.framework_importer.LLMClient", lambda: FakeFrameworkClient()):
+                client = TestClient(create_app())
+                client.cookies.set(SESSION_COOKIE_NAME, get_serializer().dumps({"user_id": "user1"}))
+                payload = {"project_id": "xianghuo_demo", "framework_markdown": "# 框架", "execute": False}
+                preview = client.post("/api/import-framework", json=payload)
+                self.assertEqual(preview.status_code, 200)
+                self.assertFalse((Path(tmp) / "xianghuo_demo").exists())
+                execute = client.post("/api/import-framework", json={**payload, "execute": True})
+                self.assertEqual(execute.status_code, 200)
+                self.assertTrue((Path(tmp) / "xianghuo_demo" / "project.json").is_file())
+                self.assertEqual(execute.json()["status"], "created")
+
+
+class FakeFrameworkClient:
+    def complete_json(self, *args, **kwargs):
+        return fake_framework_spec()
+
+
+def fake_framework_spec() -> dict[str, object]:
+    cards = []
+    for chapter in range(1, 41):
+        if chapter == 1:
+            objective = "被逐受辱危机开局，主角失去庙产"
+        elif chapter == 2:
+            objective = "香火金手指出现，主角确认神道规则"
+        elif chapter == 3:
+            objective = "第一次显圣反杀，夺回村民信任"
+        elif chapter == 8:
+            objective = "第一次大打脸，乡绅阴谋败露"
+        else:
+            objective = f"推进第 {chapter} 章冷启动阶段目标"
+        cards.append(
+            {
+                "chapter": chapter,
+                "title": f"第{chapter}章香火试炼",
+                "objective": objective,
+                "conflict": "信众利益与反派压迫正面碰撞",
+                "爽点": "香火显威，凡人得到实际好处",
+                "ending_hook": "新的神像裂纹暴露更大敌人",
+                "must_continue_from": "承接上一章香火变化",
+            }
+        )
+    return {
+        "title": "香火成神",
+        "genre": "玄幻神道",
+        "target_platform": "番茄免费阅读冷启动测试",
+        "one_sentence_pitch": "落魄庙祝靠香火金手指护凡人成神。",
+        "tags": ["香火", "神道", "凡人流", "打脸", "升级"],
+        "commercial_positioning": "男频免费阅读冷启动爽文，前三章兑现显圣反杀。",
+        "core_selling_points": ["香火规则可视化", "凡人利益强绑定", "反派压迫持续打脸"],
+        "protagonist": {"name": "陈玄", "goal": "重建山神庙", "boundary": "不圣母"},
+        "main_antagonists": [{"name": "刘乡绅", "role": "开局压迫者"}],
+        "supporting_characters": [{"name": "阿禾", "role": "第一个信众"}],
+        "world_rules": ["香火来自真实信任", "显圣必须消耗香火"],
+        "power_system": {"rules": ["香火入账后才能显圣"], "growth_path": ["庙祝", "山神"], "limits": ["信众背弃会反噬"]},
+        "phase_targets": {
+            "0-2万字": "完成危机、金手指、显圣反杀和第一次打脸。",
+            "2-5万字": "扩大村落信众，建立反派反制。",
+            "5-8万字": "打穿乡镇线，证明神道规则可持续。",
+            "8-10万字": "进入县城新地图，留下更大敌人。",
+        },
+        "required_beats": ["被逐受辱", "金手指出现", "显圣反杀", "第一次大打脸"],
+        "forbidden_moves": ["主角圣母", "机械降神", "凡人背景板", "跳过代价", "无冲突升级"],
+        "hook_terms": ["显圣", "香火", "反杀", "打脸", "神像裂纹"],
+        "forbidden_terms": ["涉政", "色情", "血腥猎奇", "封建迷信宣扬", "机械降神"],
+        "chapter_cards": cards,
+    }
 
 
 if __name__ == "__main__":

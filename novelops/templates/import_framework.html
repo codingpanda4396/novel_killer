@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>导入框架</h1>
+<div class="card">
+  <form id="import-framework-form">
+    <label>项目 ID</label>
+    <input name="project_id" required style="display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;padding:10px;border:1px solid #c9d1d9;border-radius:6px;">
+    <label>书名覆盖</label>
+    <input name="name" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;padding:10px;border:1px solid #c9d1d9;border-radius:6px;">
+    <label>目标平台覆盖</label>
+    <input name="target_platform" placeholder="番茄免费阅读冷启动测试" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;padding:10px;border:1px solid #c9d1d9;border-radius:6px;">
+    <label>ChatGPT 框架 Markdown</label>
+    <textarea name="framework_markdown" required rows="18" style="display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;padding:10px;border:1px solid #c9d1d9;border-radius:6px;"></textarea>
+    <button type="submit">预览</button>
+    <button type="button" class="secondary" id="execute-import">创建项目</button>
+  </form>
+</div>
+<div id="import-result" class="card" style="margin-top:14px;display:none;"></div>
+<script>
+  const form = document.getElementById("import-framework-form");
+  const result = document.getElementById("import-result");
+  async function submitImport(execute) {
+    const body = Object.fromEntries(new FormData(form).entries());
+    body.execute = Boolean(execute);
+    result.style.display = "block";
+    result.textContent = "处理中...";
+    const response = await fetch("/api/import-framework", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      result.textContent = data.detail || "导入失败";
+      return;
+    }
+    if (data.redirect_url && execute) {
+      window.location.href = data.redirect_url;
+      return;
+    }
+    result.innerHTML = "";
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(data, null, 2);
+    result.appendChild(pre);
+  }
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    submitImport(false);
+  });
+  document.getElementById("execute-import").addEventListener("click", () => submitImport(true));
+</script>
+{% endblock %}

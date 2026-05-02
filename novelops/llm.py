@@ -13,6 +13,9 @@ from .paths import CONFIG_DIR
 
 STAGES = {
     "planner",
+    "framework_extract",
+    "framework_expand_chapters",
+    "framework_review_rules",
     "chapter_intent",
     "scene_chain",
     "draft_v1",
@@ -89,7 +92,7 @@ def has_live_config(stage: str | None = None, path: Path | None = None) -> bool:
 
 
 def _role_for_stage(stage: str) -> str | None:
-    if stage in {"chapter_intent", "scene_chain", "planner"}:
+    if stage in {"chapter_intent", "scene_chain", "planner", "framework_extract", "framework_expand_chapters", "framework_review_rules"}:
         return "planner"
     if stage in {"draft_v1", "commercial_rewrite", "humanize", "revision"}:
         return "generator"
