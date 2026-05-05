@@ -8,9 +8,12 @@ import sys
 from .config import ConfigError, default_project_id, load_app_config, load_project, threshold
 from .assistant import ask
 from .corpus import list_chapters
+from .db.engine import database_url
+from .db.migrate import init_db
 from .framework_importer import import_framework_project, preview_framework_import
 from .generator import generate
 from .indexer import rebuild_index
+from .indexer import connect
 from .paths import project_dir, rel
 from .planner import plan_next
 from .prepare import prepare_project_interactive
@@ -86,6 +89,30 @@ def cmd_index(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_db_status(args: argparse.Namespace) -> int:
+    path = init_db()
+    print(f"Database URL: {database_url()}")
+    if path is None:
+        print("Table counts: unavailable for non-SQLite URL")
+        return 0
+    with connect(path) as conn:
+        tables = [
+            "story_projects",
+            "projects",
+            "chapters",
+            "chapter_plans",
+            "reviews",
+            "revision_queue",
+            "hot_items",
+            "market_reports",
+            "feedback_logs",
+        ]
+        for table in tables:
+            count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            print(f"{table}: {count}")
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from .web import ensure_index
 
@@ -139,6 +166,45 @@ def cmd_generate(args: argparse.Namespace) -> int:
 def cmd_scout(args: argparse.Namespace) -> int:
     candidates = scout(project_dir(args.project))
     print(f"Topic candidates: {len(candidates)}")
+    return 0
+
+
+def cmd_memory_index(args: argparse.Namespace) -> int:
+    """重建指定项目记忆库"""
+    try:
+        from .memory import index_project
+    except ImportError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+
+    project_path = project_dir(args.project)
+    count = index_project(project_path)
+    print(f"Indexed {count} documents for project: {args.project}")
+    return 0
+
+
+def cmd_memory_recall(args: argparse.Namespace) -> int:
+    """预览指定章节召回结果"""
+    try:
+        from .memory import recall_for_chapter, format_memory_context
+        from .planner import plan_next
+    except ImportError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+
+    project_path = project_dir(args.project)
+    plan, intent, chain = plan_next(project_path, args.chapter)
+    context = recall_for_chapter(project_path, args.chapter, plan, intent, chain)
+
+    print(f"=== Chapter {args.chapter} Memory Recall ===\n")
+    for section, content in context.items():
+        print(f"## {section}")
+        if content:
+            print(content[:500] + "..." if len(content) > 500 else content)
+        else:
+            print("(empty)")
+        print()
+
     return 0
 
 
@@ -261,6 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("index")
     p.add_argument("--project", dest="index_project")
     p.set_defaults(func=cmd_index)
+    sub.add_parser("db-status", help="显示数据库 URL、核心表数量和迁移状态").set_defaults(func=cmd_db_status)
     p = sub.add_parser("serve")
     p.add_argument("--host", default=str(app_cfg.get("web", {}).get("host", "127.0.0.1")))
     p.add_argument("--port", type=int, default=int(app_cfg.get("web", {}).get("port", 8787)))
@@ -301,6 +368,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("chapter", type=int)
     p.set_defaults(func=cmd_generate)
     sub.add_parser("scout").set_defaults(func=cmd_scout)
+    p = sub.add_parser("memory-index", help="重建项目记忆库")
+    p.set_defaults(func=cmd_memory_index)
+    p = sub.add_parser("memory-recall", help="预览章节召回结果")
+    p.add_argument("chapter", type=int)
+    p.set_defaults(func=cmd_memory_recall)
     p = sub.add_parser("ask")
     p.add_argument("message")
     p.add_argument("--yes", action="store_true", default=False)

@@ -84,7 +84,19 @@ def _generate_live(project_path: Path, chapter: int, threshold: float, llm_clien
     plan, intent, chain = plan_next(project_path, chapter)
     target = project_path / "generation" / f"chapter_{chapter:03d}"
     context = _prompt_context(plan, intent, chain)
-    project_summary = _project_summary(project_path)
+
+    # 尝试使用记忆层召回
+    memory_context = ""
+    try:
+        from .memory import recall_for_chapter, format_memory_context
+        memory_dict = recall_for_chapter(project_path, chapter, plan, intent, chain)
+        memory_context = format_memory_context(memory_dict)
+    except (ImportError, Exception) as e:
+        # Chroma 不可用时降级到原有 project_summary
+        pass
+
+    # 使用 memory_context 或降级到 project_summary
+    project_summary = memory_context if memory_context else _project_summary(project_path)
 
     intent_json = llm_client.complete_json(
         "基于固定章节计划、项目 bible/state 摘要，细化本章读者承诺、情绪转折、商业钩子和禁写项。"
@@ -175,6 +187,16 @@ def _generate_live(project_path: Path, chapter: int, threshold: float, llm_clien
         except Exception as e:
             # 连续性更新失败不应阻止生成流程
             print(f"Warning: Failed to update continuity: {e}")
+
+        # 增量更新记忆库
+        try:
+            from .memory import get_store
+            from .memory.indexer import index_chapter
+            store = get_store()
+            index_chapter(project_path, chapter, current_text, store)
+        except Exception as e:
+            # 记忆库更新失败不应阻止生成流程
+            pass
 
     return DraftArtifact(
         chapter=chapter,
