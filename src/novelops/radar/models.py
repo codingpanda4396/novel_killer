@@ -66,6 +66,14 @@ class AnalyzedNovelSignal:
     
     analyzed_at: str = ""                   # 分析时间
     analyzer_version: str = ""              # 分析器版本
+    
+    # LLM 分析结果
+    llm_genre: str | None = None                # LLM 提取的题材
+    llm_core_desire: str | None = None          # LLM 提取的读者核心欲望
+    llm_hook: str | None = None                 # LLM 提取的核心钩子
+    llm_golden_finger: str | None = None        # LLM 提取的金手指机制
+    llm_reader_emotion: list[str] = field(default_factory=list)  # LLM 提取的读者情绪
+    llm_risk: str | None = None                 # LLM 提取的市场风险
 
 
 @dataclass(frozen=True)

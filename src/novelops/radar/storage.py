@@ -62,6 +62,12 @@ CREATE TABLE IF NOT EXISTS analyzed_signals (
     commercial_potential_score REAL,
     analyzed_at TEXT NOT NULL,
     analyzer_version TEXT NOT NULL,
+    llm_genre TEXT,
+    llm_core_desire TEXT,
+    llm_hook TEXT,
+    llm_golden_finger TEXT,
+    llm_reader_emotion TEXT,
+    llm_risk TEXT,
     FOREIGN KEY (signal_id) REFERENCES raw_signals(signal_id)
 );
 
@@ -83,11 +89,30 @@ CREATE TABLE IF NOT EXISTS topic_opportunities (
     generated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS raw_signal_observations (
+    observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signal_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    rank_type TEXT,
+    rank_position INTEGER,
+    hot_score REAL,
+    rank_metric_name TEXT,
+    rank_metric_value REAL,
+    source_url TEXT,
+    snapshot_date TEXT NOT NULL,
+    collected_at TEXT NOT NULL,
+    raw_payload TEXT NOT NULL,
+    FOREIGN KEY (signal_id) REFERENCES raw_signals(signal_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_raw_signals_source ON raw_signals(source, source_type);
 CREATE INDEX IF NOT EXISTS idx_raw_signals_platform ON raw_signals(platform);
 CREATE INDEX IF NOT EXISTS idx_raw_signals_collected ON raw_signals(collected_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analyzed_signals_score ON analyzed_signals(commercial_potential_score DESC);
 CREATE INDEX IF NOT EXISTS idx_topic_opportunities_score ON topic_opportunities(final_score DESC);
+CREATE INDEX IF NOT EXISTS idx_raw_observations_signal ON raw_signal_observations(signal_id, collected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_raw_observations_snapshot ON raw_signal_observations(source, snapshot_date);
 """
 
 
@@ -107,9 +132,28 @@ class RadarStorage:
         conn = self.connect()
         try:
             conn.executescript(SCHEMA)
+            self._migrate_analyzed_signals(conn)
             conn.commit()
         finally:
             conn.close()
+    
+    def _migrate_analyzed_signals(self, conn: sqlite3.Connection) -> None:
+        """安全地为 analyzed_signals 表添加新列"""
+        new_columns = [
+            ("llm_genre", "TEXT"),
+            ("llm_core_desire", "TEXT"),
+            ("llm_hook", "TEXT"),
+            ("llm_golden_finger", "TEXT"),
+            ("llm_reader_emotion", "TEXT"),
+            ("llm_risk", "TEXT"),
+        ]
+        
+        cursor = conn.execute("PRAGMA table_info(analyzed_signals)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+        
+        for col_name, col_type in new_columns:
+            if col_name not in existing_columns:
+                conn.execute(f"ALTER TABLE analyzed_signals ADD COLUMN {col_name} {col_type}")
     
     def save_raw_signals(self, signals: list[RawNovelSignal]) -> int:
         conn = self.connect()
@@ -135,6 +179,39 @@ class RadarStorage:
             return count
         finally:
             conn.close()
+
+    def save_raw_signal_observations(self, signals: list[RawNovelSignal]) -> int:
+        conn = self.connect()
+        try:
+            count = 0
+            for s in signals:
+                payload = s.raw_payload or {}
+                conn.execute(
+                    """INSERT INTO raw_signal_observations
+                    (signal_id, source, platform, rank_type, rank_position, hot_score,
+                     rank_metric_name, rank_metric_value, source_url, snapshot_date,
+                     collected_at, raw_payload)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        s.signal_id,
+                        s.source,
+                        s.platform,
+                        s.rank_type,
+                        s.rank_position,
+                        s.hot_score,
+                        payload.get("rank_metric_name"),
+                        payload.get("rank_metric_value"),
+                        payload.get("source_url"),
+                        payload.get("snapshot_date") or s.collected_at[:10],
+                        s.collected_at,
+                        json.dumps(payload, ensure_ascii=False),
+                    ),
+                )
+                count += 1
+            conn.commit()
+            return count
+        finally:
+            conn.close()
     
     def save_analyzed_signals(self, signals: list[AnalyzedNovelSignal]) -> int:
         conn = self.connect()
@@ -150,9 +227,11 @@ class RadarStorage:
                      extracted_genre, protagonist_template, golden_finger,
                      core_hook, reader_desire, shuang_points, risk_points,
                      platform_fit_score, competition_score, writing_difficulty_score,
-                     commercial_potential_score, analyzed_at, analyzer_version)
+                     commercial_potential_score, analyzed_at, analyzer_version,
+                     llm_genre, llm_core_desire, llm_hook, llm_golden_finger,
+                     llm_reader_emotion, llm_risk)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (s.signal_id, s.source, s.source_type, s.platform,
                      s.rank_type, s.rank_position, s.title, s.author,
                      s.category, s.sub_category, json.dumps(s.tags, ensure_ascii=False),
@@ -165,7 +244,11 @@ class RadarStorage:
                      json.dumps(s.risk_points, ensure_ascii=False),
                      s.platform_fit_score, s.competition_score,
                      s.writing_difficulty_score, s.commercial_potential_score,
-                     s.analyzed_at, s.analyzer_version)
+                     s.analyzed_at, s.analyzer_version,
+                     s.llm_genre, s.llm_core_desire, s.llm_hook,
+                     s.llm_golden_finger,
+                     json.dumps(s.llm_reader_emotion, ensure_ascii=False),
+                     s.llm_risk)
                 )
                 count += 1
             conn.commit()
@@ -259,6 +342,14 @@ class RadarStorage:
             return row[0]
         finally:
             conn.close()
+
+    def count_raw_signal_observations(self) -> int:
+        conn = self.connect()
+        try:
+            row = conn.execute("SELECT COUNT(*) FROM raw_signal_observations").fetchone()
+            return row[0]
+        finally:
+            conn.close()
     
     def _row_to_raw_signal(self, row: sqlite3.Row) -> RawNovelSignal:
         return RawNovelSignal(
@@ -315,6 +406,12 @@ class RadarStorage:
             commercial_potential_score=row["commercial_potential_score"] or 0.0,
             analyzed_at=row["analyzed_at"],
             analyzer_version=row["analyzer_version"],
+            llm_genre=row["llm_genre"],
+            llm_core_desire=row["llm_core_desire"],
+            llm_hook=row["llm_hook"],
+            llm_golden_finger=row["llm_golden_finger"],
+            llm_reader_emotion=json.loads(row["llm_reader_emotion"]) if row["llm_reader_emotion"] else [],
+            llm_risk=row["llm_risk"],
         )
     
     def _row_to_topic_opportunity(self, row: sqlite3.Row) -> TopicOpportunity:
