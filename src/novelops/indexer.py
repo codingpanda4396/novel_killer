@@ -8,6 +8,7 @@ from typing import Any
 
 from .config import db_path, load_project_path
 from .corpus import list_chapters, parse_title
+from .db.migrate import init_db
 from .paths import all_project_dirs, project_dir
 
 
@@ -76,10 +77,9 @@ CREATE TABLE IF NOT EXISTS revision_queue (
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
     target = path or db_path()
-    target.parent.mkdir(parents=True, exist_ok=True)
+    init_db(target)
     conn = sqlite3.connect(target)
     conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA)
     return conn
 
 
@@ -89,11 +89,12 @@ def rebuild_index(project_id: str | None = None, path: Path | None = None) -> Pa
     try:
         projects = [project_dir(project_id)] if project_id else all_project_dirs()
         if project_id:
-            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-            for table in ["chapters", "generation_runs", "reviews", "revision_queue"]:
+            for table in ["projects", "story_projects"]:
+                conn.execute(f"DELETE FROM {table} WHERE id = ?", (project_id,))
+            for table in ["chapters", "chapter_plans", "generation_runs", "reviews", "revision_queue"]:
                 conn.execute(f"DELETE FROM {table} WHERE project_id = ?", (project_id,))
         else:
-            for table in ["projects", "chapters", "generation_runs", "reviews", "revision_queue"]:
+            for table in ["projects", "story_projects", "chapters", "chapter_plans", "generation_runs", "reviews", "revision_queue"]:
                 conn.execute(f"DELETE FROM {table}")
         for project_path in projects:
             if (project_path / "project.json").is_file():
@@ -108,13 +109,27 @@ def index_project(conn: sqlite3.Connection, project_path: Path) -> None:
     cfg = load_project_path(project_path)
     project_id = str(cfg["id"])
     current_volume = cfg.get("current_volume", {})
+    target_platform = cfg.get("target_platform")
     conn.execute(
-        "INSERT OR REPLACE INTO projects (id, name, genre, path, current_volume, next_chapter, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        "INSERT OR REPLACE INTO projects (id, name, genre, path, target_platform, current_volume, next_chapter, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
         (
             project_id,
             cfg.get("name", project_id),
             cfg.get("genre"),
             str(project_path),
+            target_platform,
+            current_volume.get("number"),
+            current_volume.get("next_chapter"),
+        ),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO story_projects (id, name, genre, path, target_platform, current_volume, next_chapter, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        (
+            project_id,
+            cfg.get("name", project_id),
+            cfg.get("genre"),
+            str(project_path),
+            target_platform,
             current_volume.get("number"),
             current_volume.get("next_chapter"),
         ),
@@ -122,14 +137,15 @@ def index_project(conn: sqlite3.Connection, project_path: Path) -> None:
     for chapter in list_chapters(project_path):
         _insert_chapter(conn, project_id, chapter.number, "corpus", chapter.title, chapter.word_count, chapter.path, "ready")
     _index_generated(conn, project_id, project_path)
+    _index_chapter_plans(conn, project_id, project_path)
     _index_reviews(conn, project_id, project_path)
     _index_revision_queue(conn, project_id, project_path)
 
 
 def _insert_chapter(conn: sqlite3.Connection, project_id: str, chapter: int, source_type: str, title: str, word_count: int, path: Path, status: str) -> None:
     conn.execute(
-        "INSERT OR REPLACE INTO chapters (project_id, chapter, source_type, title, word_count, path, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (project_id, chapter, source_type, title, word_count, str(path), status),
+        "INSERT OR REPLACE INTO chapters (project_id, chapter, source_type, title, word_count, content_path, path, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (project_id, chapter, source_type, title, word_count, str(path), str(path), status),
     )
 
 
@@ -171,6 +187,39 @@ def _index_generated(conn: sqlite3.Connection, project_id: str, project_path: Pa
         if final_path:
             text = final_path.read_text(encoding="utf-8", errors="ignore")
             _insert_chapter(conn, project_id, chapter, "generation", parse_title(text, final_path.stem), _word_count(text), final_path, status)
+
+
+def _index_chapter_plans(conn: sqlite3.Connection, project_id: str, project_path: Path) -> None:
+    for plan_path in sorted((project_path / "generation").glob("chapter_*/01_chapter_plan.json")):
+        match = re.search(r"chapter_(\d+)", str(plan_path.parent.name))
+        if not match:
+            continue
+        data = _read_json(plan_path)
+        chapter = int(match.group(1))
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO chapter_plans
+            (project_id, chapter, goal, hook, status, plan_path, generated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id,
+                chapter,
+                _pick_text(data, "goal", "chapter_goal", "objective"),
+                _pick_text(data, "hook", "ending_hook", "chapter_hook"),
+                "planned",
+                str(plan_path),
+                data.get("generated_at") or data.get("created_at"),
+            ),
+        )
+
+
+def _pick_text(data: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _index_reviews(conn: sqlite3.Connection, project_id: str, project_path: Path) -> None:

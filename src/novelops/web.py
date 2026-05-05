@@ -1,20 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from .assistant import ask
+from .chat_session import SessionManager, ChatSession
 from .config import validate_invite_code
 from .framework_importer import import_framework_project, preview_framework_import
 from .indexer import connect, rebuild_index
 from .paths import ROOT
 from .project import init_project
 from .session import get_session, set_session, clear_session, get_current_user
+from .task_tracker import TaskTracker, AsyncTaskRunner
 from .user import (
     get_user_projects,
     add_user_project,
@@ -27,10 +31,20 @@ from .user import (
 
 templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
 
+session_manager = SessionManager()
+task_tracker = TaskTracker()
+async_runner = AsyncTaskRunner(task_tracker)
+
 
 class AskRequest(BaseModel):
     message: str
     project: str | None = None
+    execute: bool = False
+
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str | None = None
     execute: bool = False
 
 
@@ -246,6 +260,138 @@ def create_app() -> FastAPI:
             default_project=project_id,
             execute=payload.execute,
         ).to_dict()
+
+    @app.post("/api/chat")
+    def api_chat(request: Request, payload: ChatRequest) -> dict:
+        user_id = require_user(request)
+        message = payload.message.strip()
+        if not message:
+            raise HTTPException(status_code=400, detail="消息不能为空")
+
+        session_id = payload.session_id
+        if session_id:
+            session = session_manager.get_session(session_id)
+            if not session or session.user_id != user_id:
+                session = session_manager.create_session(user_id, get_default_project(user_id))
+        else:
+            session = session_manager.create_session(user_id, get_default_project(user_id))
+
+        session.add_message("user", message)
+        response = ask(message, default_project=session.project_id, execute=payload.execute)
+        session.add_message("assistant", response.message, {
+            "intent": response.intent.name,
+            "requires_confirmation": response.requires_confirmation,
+            "actions": response.actions,
+        })
+        session_manager.save_session(session)
+
+        return {
+            "session_id": session.session_id,
+            "message": response.message,
+            "intent": response.intent.name,
+            "requires_confirmation": response.requires_confirmation,
+            "actions": response.actions,
+            "result": response.result,
+            "errors": response.errors,
+        }
+
+    @app.post("/api/chat/execute")
+    def api_chat_execute(request: Request, payload: dict) -> dict:
+        user_id = require_user(request)
+        session_id = payload.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id required")
+
+        session = session_manager.get_session(session_id)
+        if not session or session.user_id != user_id:
+            raise HTTPException(status_code=404, detail="会话不存在")
+
+        last_user_msg = next((m for m in reversed(session.messages) if m.role == "user"), None)
+        if not last_user_msg:
+            raise HTTPException(status_code=400, detail="没有待执行的操作")
+
+        response = ask(last_user_msg.content, default_project=session.project_id, execute=True)
+
+        long_tasks = {"generate", "pipeline_run", "radar_collect", "radar_analyze", "prepare_project"}
+        if response.intent.name in long_tasks:
+            task_id = task_tracker.create_task(
+                user_id=user_id,
+                session_id=session.session_id,
+                intent=response.intent.name,
+                project_id=session.project_id,
+            )
+            session.add_message("assistant", f"任务已启动，任务ID: {task_id}", {"task_id": task_id})
+            session_manager.save_session(session)
+            return {
+                "session_id": session.session_id,
+                "task_id": task_id,
+                "message": "任务已启动，请通过/api/stream/{task_id}查看进度",
+            }
+
+        session.add_message("assistant", response.message, {"result": response.result})
+        session_manager.save_session(session)
+
+        return {
+            "session_id": session.session_id,
+            "message": response.message,
+            "result": response.result,
+            "errors": response.errors,
+        }
+
+    @app.get("/api/stream/{task_id}")
+    async def stream_task_progress(task_id: str, request: Request):
+        user_id = require_user(request)
+        task = task_tracker.get_task(task_id)
+        if not task or task.user_id != user_id:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        async def event_generator():
+            while True:
+                task = task_tracker.get_task(task_id)
+                if not task:
+                    break
+                yield f"data: {json.dumps(task.to_dict(), ensure_ascii=False)}\n\n"
+                if task.status in ["completed", "failed"]:
+                    break
+                await asyncio.sleep(1)
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
+    @app.get("/api/chat/history/{session_id}")
+    def get_chat_history(session_id: str, request: Request) -> dict:
+        user_id = require_user(request)
+        session = session_manager.get_session(session_id)
+        if not session or session.user_id != user_id:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        return session.to_dict()
+
+    @app.get("/api/chat/sessions")
+    def get_user_chat_sessions(request: Request) -> dict:
+        user_id = require_user(request)
+        sessions = session_manager.get_user_sessions(user_id)
+        return {"sessions": [s.to_dict() for s in sessions]}
+
+    @app.get("/api/tasks")
+    def get_user_tasks(request: Request) -> dict:
+        user_id = require_user(request)
+        tasks = task_tracker.get_user_tasks(user_id)
+        return {"tasks": [t.to_dict() for t in tasks]}
+
+    @app.get("/chat", response_class=HTMLResponse)
+    def chat_page(request: Request):
+        user_id = get_current_user(request)
+        if not user_id:
+            return RedirectResponse(url="/invite", status_code=303)
+        if not has_any_project(user_id):
+            return RedirectResponse(url="/projects", status_code=303)
+        project_id = get_default_project(user_id)
+        if not project_id:
+            return RedirectResponse(url="/projects", status_code=303)
+        return templates.TemplateResponse(request, "chat.html", {"project_id": project_id})
 
     @app.get("/projects/{project_id}", response_class=HTMLResponse)
     def project_detail(request: Request, project_id: str) -> HTMLResponse:

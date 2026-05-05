@@ -30,9 +30,19 @@ INTENTS = {
     "show_revision_queue",
     "serve_help",
     "unknown",
+    "radar_collect",
+    "radar_analyze",
+    "radar_report",
+    "radar_analyze_text",
+    "pipeline_run",
+    "pipeline_status",
+    "pipeline_approve",
+    "pipeline_reject",
+    "prepare_project",
+    "readiness_check",
 }
-AUTO_EXECUTE = {"status", "check", "plan_next", "review_chapter", "index", "explain_review", "show_revision_queue", "serve_help"}
-CONFIRM_EXECUTE = {"init_project", "generate"}
+AUTO_EXECUTE = {"status", "check", "plan_next", "review_chapter", "index", "explain_review", "show_revision_queue", "serve_help", "pipeline_status"}
+CONFIRM_EXECUTE = {"init_project", "generate", "radar_collect", "radar_analyze", "pipeline_run", "prepare_project"}
 FORBIDDEN_PATTERNS = [
     ("delete", r"删除|移除|清空|rm\s+-rf"),
     ("overwrite_corpus", r"覆盖.*corpus|重写.*语料|覆盖.*正文语料"),
@@ -181,7 +191,123 @@ class AssistantOrchestrator:
             return revision_queue(intent.project)
         if intent.name == "serve_help":
             return {"command": "python3 -m novelops.cli serve", "url": "http://127.0.0.1:8787"}
+        if intent.name == "radar_collect":
+            return self._execute_radar_collect(intent)
+        if intent.name == "radar_analyze":
+            return self._execute_radar_analyze(intent)
+        if intent.name == "radar_report":
+            return self._execute_radar_report(intent)
+        if intent.name == "radar_analyze_text":
+            return self._execute_radar_analyze_text(intent)
+        if intent.name == "pipeline_run":
+            return self._execute_pipeline_run(intent)
+        if intent.name == "pipeline_status":
+            return self._execute_pipeline_status(intent)
+        if intent.name == "pipeline_approve":
+            return self._execute_pipeline_approve(intent)
+        if intent.name == "pipeline_reject":
+            return self._execute_pipeline_reject(intent)
+        if intent.name == "prepare_project":
+            return self._execute_prepare_project(intent)
+        if intent.name == "readiness_check":
+            return self._execute_readiness_check(intent)
         raise ConfigError(f"Unsupported intent: {intent.name}")
+
+    def _execute_radar_collect(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .radar.cli import cmd_collect_web
+        import argparse
+        args = argparse.Namespace(
+            source="fanqie",
+            all=False,
+            rank="hot",
+            category=None,
+            limit=50,
+            dry_run=False,
+            playwright=False,
+            ignore_robots=False,
+        )
+        result_code = cmd_collect_web(args)
+        return {"status": "success" if result_code == 0 else "failed", "source": "fanqie"}
+
+    def _execute_radar_analyze(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .radar.cli import cmd_analyze
+        import argparse
+        args = argparse.Namespace(limit=100, llm=False)
+        result_code = cmd_analyze(args)
+        return {"status": "success" if result_code == 0 else "failed"}
+
+    def _execute_radar_report(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .radar.cli import cmd_report
+        import argparse
+        args = argparse.Namespace(limit=100)
+        result_code = cmd_report(args)
+        return {"status": "success" if result_code == 0 else "failed"}
+
+    def _execute_radar_analyze_text(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .radar.cli import cmd_analyze_text
+        import argparse
+        args = argparse.Namespace(
+            text=intent.display_name or "",
+            json=False,
+            title=None,
+            category=None,
+            tags=None,
+            platform=None,
+        )
+        result_code = cmd_analyze_text(args)
+        return {"status": "success" if result_code == 0 else "failed"}
+
+    def _execute_pipeline_run(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .pipeline.cli import cmd_pipeline_run
+        import argparse
+        project_id = intent.project or self.default_project
+        args = argparse.Namespace(
+            project=project_id,
+            topic=None,
+            mode="interactive",
+            from_stage=None,
+            chapters=intent.chapter or 10,
+        )
+        result_code = cmd_pipeline_run(args)
+        return {"status": "success" if result_code == 0 else "failed", "project": project_id}
+
+    def _execute_pipeline_status(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .pipeline.cli import cmd_pipeline_status
+        import argparse
+        project_id = intent.project or self.default_project
+        args = argparse.Namespace(project=project_id)
+        result_code = cmd_pipeline_status(args)
+        return {"status": "success" if result_code == 0 else "failed", "project": project_id}
+
+    def _execute_pipeline_approve(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .pipeline.cli import cmd_pipeline_approve
+        import argparse
+        project_id = intent.project or self.default_project
+        args = argparse.Namespace(project=project_id)
+        result_code = cmd_pipeline_approve(args)
+        return {"status": "success" if result_code == 0 else "failed", "project": project_id}
+
+    def _execute_pipeline_reject(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .pipeline.cli import cmd_pipeline_reject
+        import argparse
+        project_id = intent.project or self.default_project
+        args = argparse.Namespace(project=project_id, feedback="用户拒绝")
+        result_code = cmd_pipeline_reject(args)
+        return {"status": "success" if result_code == 0 else "failed", "project": project_id}
+
+    def _execute_prepare_project(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .prepare import prepare_project_interactive
+        project_id = intent.project or self.default_project
+        base = project_dir(project_id)
+        result = prepare_project_interactive(base)
+        return {"status": "success", "project": project_id, **result}
+
+    def _execute_readiness_check(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .readiness import check_readiness
+        project_id = intent.project or self.default_project
+        base = project_dir(project_id)
+        result = check_readiness(base)
+        return {"project": project_id, **result}
 
 
 def project_status(project: str) -> dict[str, Any]:
@@ -358,6 +484,26 @@ def _equivalent_command(intent: AssistantIntent) -> str:
         return f"{prefix} ask \"显示修订队列\""
     if intent.name == "serve_help":
         return "python3 -m novelops.cli serve"
+    if intent.name == "radar_collect":
+        return "python3 -m novelops.radar collect-web"
+    if intent.name == "radar_analyze":
+        return "python3 -m novelops.radar analyze"
+    if intent.name == "radar_report":
+        return "python3 -m novelops.radar report"
+    if intent.name == "radar_analyze_text":
+        return "python3 -m novelops.radar analyze-text <text>"
+    if intent.name == "pipeline_run":
+        return "python3 -m novelops.cli pipeline run"
+    if intent.name == "pipeline_status":
+        return "python3 -m novelops.cli pipeline status"
+    if intent.name == "pipeline_approve":
+        return "python3 -m novelops.cli pipeline approve"
+    if intent.name == "pipeline_reject":
+        return "python3 -m novelops.cli pipeline reject"
+    if intent.name == "prepare_project":
+        return "python3 -m novelops.cli prepare"
+    if intent.name == "readiness_check":
+        return "python3 -m novelops.cli readiness"
     return f"{prefix} ask <request>"
 
 
@@ -382,6 +528,22 @@ def _success_message(intent: AssistantIntent, result: dict[str, Any]) -> str:
         return f"当前 open 修订队列 {result['count']} 项。"
     if intent.name == "serve_help":
         return f"启动看板：{result['command']}，默认地址 {result['url']}"
+    if intent.name == "radar_collect":
+        return f"市场数据采集{'成功' if result.get('status') == 'success' else '失败'}。来源：{result.get('source', '未知')}"
+    if intent.name == "radar_analyze":
+        return f"市场数据分析{'完成' if result.get('status') == 'success' else '失败'}。"
+    if intent.name == "radar_report":
+        return f"市场报告{'已生成' if result.get('status') == 'success' else '生成失败'}。"
+    if intent.name == "pipeline_run":
+        return f"流水线{'已启动' if result.get('status') == 'success' else '启动失败'}。项目：{result.get('project', '未知')}"
+    if intent.name == "pipeline_status":
+        return f"流水线状态查询{'完成' if result.get('status') == 'success' else '失败'}。"
+    if intent.name == "pipeline_approve":
+        return f"流水线节点{'已批准' if result.get('status') == 'success' else '批准失败'}。"
+    if intent.name == "prepare_project":
+        return f"项目准备{'完成' if result.get('status') == 'success' else '失败'}。项目：{result.get('project', '未知')}"
+    if intent.name == "readiness_check":
+        return f"准备度检查完成。项目：{result.get('project', '未知')}"
     return "已完成。"
 
 
@@ -391,6 +553,14 @@ def _confirmation_message(intent: AssistantIntent) -> str:
         return f"生成章节会写入 generation 和 reviews 产物，需要确认。等价命令：{command}。CLI 可加 --yes 执行。"
     if intent.name == "init_project":
         return f"创建项目会新增项目目录，需要确认。等价命令：{command}。CLI 可加 --yes 执行。"
+    if intent.name == "radar_collect":
+        return f"将采集市场数据，需要确认。等价命令：{command}。"
+    if intent.name == "radar_analyze":
+        return f"将分析市场数据，需要确认。等价命令：{command}。"
+    if intent.name == "pipeline_run":
+        return f"将运行生成流水线，需要确认。等价命令：{command}。"
+    if intent.name == "prepare_project":
+        return f"将准备新书项目（生成核心设定、角色、大纲等），需要确认。等价命令：{command}。"
     return f"该操作需要确认。等价命令：{command}"
 
 
@@ -404,7 +574,7 @@ def _missing_message(intent: AssistantIntent) -> str:
 def _unknown(message: str | None = None, project: str | None = None) -> AssistantResponse:
     return AssistantResponse(
         message=message
-        or "我能处理：查看状态、检查项目、规划/生成下一章、审稿、解释审稿、重建索引、查看修订队列。例如：查看 life_balance 状态；解释第51章审稿为什么没过；给当前项目生成下一章。",
+        or "我能处理：查看状态、检查项目、规划/生成下一章、审稿、解释审稿、重建索引、查看修订队列、市场情报分析、流水线管理、项目准备。例如：查看 life_balance 状态；解释第51章审稿为什么没过；给当前项目生成下一章；采集市场热点；运行生成流水线；准备新书项目。",
         intent=AssistantIntent(name="unknown", project=project),
     )
 

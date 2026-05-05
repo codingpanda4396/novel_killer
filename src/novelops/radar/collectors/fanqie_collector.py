@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from .base import BaseCollector
+from .web_sources import FanqieRankCollector
 from ..models import RawNovelSignal
 
 
@@ -28,6 +29,7 @@ class FanqieCollector(BaseCollector):
     def __init__(self, rank_type: str = "hot", use_sample: bool = False):
         self.rank_type = rank_type
         self.use_sample = use_sample
+        self.issues = []
     
     @property
     def name(self) -> str:
@@ -40,10 +42,11 @@ class FanqieCollector(BaseCollector):
     def collect(self) -> list[RawNovelSignal]:
         if self.use_sample:
             return self._get_sample_data()
-        
-        # TODO: 实现实际爬取逻辑（需要 Playwright）
-        # 暂时返回样本数据
-        return self._get_sample_data()
+
+        collector = FanqieRankCollector(rank_type=self.rank_type)
+        signals = collector.collect()
+        self.issues = collector.issues
+        return signals
     
     def _get_sample_data(self) -> list[RawNovelSignal]:
         """返回番茄风格的样本数据"""

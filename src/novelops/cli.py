@@ -377,6 +377,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("message")
     p.add_argument("--yes", action="store_true", default=False)
     p.set_defaults(func=cmd_ask)
+
+    # 注册 pipeline 子命令
+    from .pipeline.cli import register_pipeline_commands
+    register_pipeline_commands(sub)
+
     return parser
 
 

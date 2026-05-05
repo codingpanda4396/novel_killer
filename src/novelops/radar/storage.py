@@ -5,6 +5,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from novelops.config import db_path as main_db_path
+from novelops.db.migrate import init_db
+
 from .models import AnalyzedNovelSignal, RawNovelSignal, TopicOpportunity
 
 
@@ -120,7 +123,7 @@ class RadarStorage:
     """NovelRadar 存储层"""
     
     def __init__(self, db_path: Path | None = None):
-        self.db_path = db_path or Path("runtime/radar/radar.sqlite")
+        self.db_path = db_path or main_db_path()
     
     def connect(self) -> sqlite3.Connection:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,13 +132,52 @@ class RadarStorage:
         return conn
     
     def init_db(self) -> None:
+        init_db(self.db_path)
         conn = self.connect()
         try:
             conn.executescript(SCHEMA)
             self._migrate_analyzed_signals(conn)
+            self._migrate_new_tables(conn)
             conn.commit()
         finally:
             conn.close()
+
+    def _migrate_new_tables(self, conn: sqlite3.Connection) -> None:
+        """Backfill unified storage tables from existing radar tables."""
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO hot_items
+            (signal_id, source, source_type, platform, rank_type, rank_position, title,
+             author, category, sub_category, tags, description, hot_score, comment_count,
+             like_count, read_count, collected_at, raw_payload)
+            SELECT signal_id, source, source_type, platform, rank_type, rank_position, title,
+             author, category, sub_category, tags, description, hot_score, comment_count,
+             like_count, read_count, collected_at, raw_payload
+            FROM raw_signals
+            """
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO market_reports
+            (report_id, hot_item_id, source, source_type, platform, rank_type, rank_position,
+             title, author, category, sub_category, tags, description, hot_score,
+             comment_count, like_count, read_count, collected_at, raw_payload, genre,
+             protagonist_template, golden_finger, hook, core_desire, reader_emotion, risk,
+             shuang_points, risk_points, platform_fit_score, competition_score,
+             writing_difficulty_score, commercial_potential_score, analyzed_at,
+             analyzer_version, model, report_json)
+            SELECT signal_id, signal_id, source, source_type, platform, rank_type, rank_position,
+             title, author, category, sub_category, tags, description, hot_score,
+             comment_count, like_count, read_count, collected_at, raw_payload,
+             COALESCE(llm_genre, extracted_genre), protagonist_template,
+             COALESCE(llm_golden_finger, golden_finger), COALESCE(llm_hook, core_hook),
+             COALESCE(llm_core_desire, reader_desire), llm_reader_emotion, llm_risk,
+             shuang_points, risk_points, platform_fit_score, competition_score,
+             writing_difficulty_score, commercial_potential_score, analyzed_at,
+             analyzer_version, analyzer_version, NULL
+            FROM analyzed_signals
+            """
+        )
     
     def _migrate_analyzed_signals(self, conn: sqlite3.Connection) -> None:
         """安全地为 analyzed_signals 表添加新列"""
@@ -162,6 +204,20 @@ class RadarStorage:
             for s in signals:
                 conn.execute(
                     """INSERT OR REPLACE INTO raw_signals 
+                    (signal_id, source, source_type, platform, rank_type, rank_position,
+                     title, author, category, sub_category, tags, description,
+                     hot_score, comment_count, like_count, read_count,
+                     collected_at, raw_payload)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (s.signal_id, s.source, s.source_type, s.platform,
+                     s.rank_type, s.rank_position, s.title, s.author,
+                     s.category, s.sub_category, json.dumps(s.tags, ensure_ascii=False),
+                     s.description, s.hot_score, s.comment_count,
+                     s.like_count, s.read_count, s.collected_at,
+                     json.dumps(s.raw_payload, ensure_ascii=False))
+                )
+                conn.execute(
+                    """INSERT OR REPLACE INTO hot_items
                     (signal_id, source, source_type, platform, rank_type, rank_position,
                      title, author, category, sub_category, tags, description,
                      hot_score, comment_count, like_count, read_count,
@@ -249,6 +305,66 @@ class RadarStorage:
                      s.llm_golden_finger,
                      json.dumps(s.llm_reader_emotion, ensure_ascii=False),
                      s.llm_risk)
+                )
+                report_payload = {
+                    "legacy": "analyzed_signals",
+                    "llm_genre": s.llm_genre,
+                    "llm_core_desire": s.llm_core_desire,
+                    "llm_hook": s.llm_hook,
+                    "llm_golden_finger": s.llm_golden_finger,
+                    "llm_reader_emotion": s.llm_reader_emotion,
+                    "llm_risk": s.llm_risk,
+                }
+                conn.execute(
+                    """INSERT OR REPLACE INTO market_reports
+                    (report_id, hot_item_id, source, source_type, platform, rank_type,
+                     rank_position, title, author, category, sub_category, tags,
+                     description, hot_score, comment_count, like_count, read_count,
+                     collected_at, raw_payload, genre, protagonist_template,
+                     golden_finger, hook, core_desire, reader_emotion, risk,
+                     shuang_points, risk_points, platform_fit_score, competition_score,
+                     writing_difficulty_score, commercial_potential_score, analyzed_at,
+                     analyzer_version, model, report_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        s.signal_id,
+                        s.signal_id,
+                        s.source,
+                        s.source_type,
+                        s.platform,
+                        s.rank_type,
+                        s.rank_position,
+                        s.title,
+                        s.author,
+                        s.category,
+                        s.sub_category,
+                        json.dumps(s.tags, ensure_ascii=False),
+                        s.description,
+                        s.hot_score,
+                        s.comment_count,
+                        s.like_count,
+                        s.read_count,
+                        s.collected_at,
+                        json.dumps(s.raw_payload, ensure_ascii=False),
+                        s.llm_genre or s.extracted_genre,
+                        s.protagonist_template,
+                        s.llm_golden_finger or s.golden_finger,
+                        s.llm_hook or s.core_hook,
+                        s.llm_core_desire or s.reader_desire,
+                        json.dumps(s.llm_reader_emotion, ensure_ascii=False),
+                        s.llm_risk,
+                        json.dumps(s.shuang_points, ensure_ascii=False),
+                        json.dumps(s.risk_points, ensure_ascii=False),
+                        s.platform_fit_score,
+                        s.competition_score,
+                        s.writing_difficulty_score,
+                        s.commercial_potential_score,
+                        s.analyzed_at,
+                        s.analyzer_version,
+                        s.analyzer_version,
+                        json.dumps(report_payload, ensure_ascii=False),
+                    ),
                 )
                 count += 1
             conn.commit()
