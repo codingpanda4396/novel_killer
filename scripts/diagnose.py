@@ -32,7 +32,7 @@ if env_file.is_file():
 
 # 3. 检查 models.json
 print("\n3. models.json 检查:")
-config_dir = project_root / "config"
+config_dir = project_root / "configs"
 models_json = config_dir / "models.json"
 print(f"  路径: {models_json}")
 print(f"  存在: {models_json.is_file()}")

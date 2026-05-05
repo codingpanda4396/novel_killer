@@ -3,12 +3,6 @@ Environment="sk-81d59b2ed3364384a6a707eba462c55b"
 
 
 
-    /opt/novelOps/novel_killer
-
-
-(.venv) [root@iZ0jl97zccedps28ht0xrlZ novel_killer]# which python
-/root/.venv/bin/python
-(.venv) [root@iZ0jl97zccedps28ht0xrlZ novel_killer]#
 
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn

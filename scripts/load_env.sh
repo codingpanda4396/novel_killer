@@ -1,6 +1,10 @@
 #!/bin/bash
 # 加载 .env 文件中的环境变量
-# 使用方法：source load_env.sh
+# 使用方法：source scripts/load_env.sh
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT" || exit 1
 
 if [ -f ".env" ]; then
     echo "Loading environment variables from .env..."

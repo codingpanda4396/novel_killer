@@ -590,6 +590,79 @@ class NovelOpsTests(unittest.TestCase):
                 self.assertTrue((Path(tmp) / "xianghuo_demo" / "project.json").is_file())
                 self.assertEqual(execute.json()["status"], "created")
 
+    def test_orchestrator_reports_ready_project_and_next_action(self) -> None:
+        from novelops.orchestrator import ProjectOrchestrator, WorkflowState
+
+        orchestrator = ProjectOrchestrator(default_project="life_balance")
+        report = orchestrator.get_project_state()
+        self.assertEqual(report.project, "life_balance")
+        self.assertEqual(report.next_chapter, 51)
+        self.assertGreaterEqual(report.corpus_count, 50)
+        self.assertIn(report.state, {WorkflowState.READY_FOR_CHAPTER, WorkflowState.REVISION_REQUIRED, WorkflowState.REVIEWED})
+
+        action = orchestrator.recommend_next_action("life_balance")
+        self.assertTrue(action.action)
+        self.assertEqual(action.project, "life_balance")
+
+    def test_orchestrator_detects_revision_required(self) -> None:
+        from novelops.orchestrator import ProjectOrchestrator, WorkflowState
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "project"
+            (project / "reviews" / "revision_queue").mkdir(parents=True)
+            (project / "reviews" / "revision_queue" / "chapter_002.md").write_text("revise", encoding="utf-8")
+            write_json(
+                project / "project.json",
+                {"id": "demo", "name": "测试", "current_volume": {"number": 1, "next_chapter": 2}},
+            )
+            report = ProjectOrchestrator().get_project_state(project_path=project)
+            self.assertEqual(report.state, WorkflowState.REVISION_REQUIRED)
+            self.assertEqual(report.open_revisions, 1)
+            self.assertEqual(report.available_actions[0].action, "review_chapter")
+
+    def test_orchestrator_generate_review_and_pipeline_are_structured(self) -> None:
+        from novelops.orchestrator import ProjectOrchestrator, WorkflowState
+        from novelops.schemas import DraftArtifact, ReviewResult
+
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "project"
+            (project / "corpus" / "volume_01").mkdir(parents=True)
+            (project / "generation" / "chapter_002").mkdir(parents=True)
+            (project / "generation" / "chapter_002" / "07_final_candidate.md").write_text("# 第2章 测试\n\n正文", encoding="utf-8")
+            write_json(
+                project / "project.json",
+                {
+                    "id": "demo",
+                    "name": "测试",
+                    "current_volume": {"number": 1, "next_chapter": 2},
+                    "review_thresholds": {"chapter": 80},
+                },
+            )
+
+            def fake_generate(project_path, chapter, threshold, llm_client=None):
+                return DraftArtifact(chapter=chapter, stage="final_candidate", path=str(project_path / "generation" / "chapter_002" / "07_final_candidate.md"), word_count=8, llm_used=False)
+
+            def fake_review(project_path, chapter, threshold, llm_client=None):
+                return ReviewResult(chapter=chapter, score=86, threshold=threshold, passed=True, issues=[], recommendations=[])
+
+            with patch("novelops.orchestrator.generator.generate", fake_generate), \
+                 patch("novelops.orchestrator.reviewer.review_chapter", fake_review), \
+                 patch("novelops.orchestrator.rebuild_index"):
+                orchestrator = ProjectOrchestrator()
+                generated = orchestrator.generate_next_chapter(project_path=project)
+                self.assertTrue(generated.success)
+                self.assertEqual(generated.chapter, 2)
+                self.assertEqual(generated.data["stage"], "final_candidate")
+
+                reviewed = orchestrator.review_chapter(project_path=project, chapter=2)
+                self.assertTrue(reviewed.success)
+                self.assertEqual(reviewed.data["score"], 86)
+
+                pipeline = orchestrator.run_chapter_pipeline(project_path=project, chapter=2)
+                self.assertTrue(pipeline.success)
+                self.assertEqual(pipeline.chapter, 2)
+                self.assertIn(pipeline.next_state, {WorkflowState.DRAFT_GENERATED, WorkflowState.READY_FOR_CHAPTER, WorkflowState.REVIEWED, WorkflowState.FRAMEWORK_IMPORTED})
+
 
 class FakeFrameworkClient:
     def complete_json(self, *args, **kwargs):

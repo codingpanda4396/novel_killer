@@ -22,7 +22,7 @@ projects/life_balance
 - `reviews/revision_queue/`：未过审章节的修订队列。
 - `bible/`、`outlines/`、`state/`：世界观、章节规划和连续性状态。
 
-默认项目来自 `config/novelops.json`；如果该文件不存在，会读取 `config/novelops.example.json`，再缺失才回退到 `life_balance`。
+默认项目来自 `configs/novelops.json`；如果该文件不存在，会读取 `configs/novelops.example.json`，再缺失才回退到 `life_balance`。
 
 ## 安装
 
@@ -45,7 +45,7 @@ python3 -m pip install -r requirements.txt
 生效配置文件是：
 
 ```text
-config/models.json
+configs/models.json
 ```
 
 默认分工：
@@ -89,7 +89,7 @@ for stage in ["assistant", "draft_v1", "reviewer", "revision"]:
 PY
 ```
 
-如果要改 RightCode 中转地址或 Claude 模型名，编辑 `config/models.json` 的 `generator` 段；如果要改 DeepSeek 模型，编辑 `assistant`、`planner`、`reviewer` 等 DeepSeek 段。
+如果要改 RightCode 中转地址或 Claude 模型名，编辑 `configs/models.json` 的 `generator` 段；如果要改 DeepSeek 模型，编辑 `assistant`、`planner`、`reviewer` 等 DeepSeek 段。
 
 ## 自然语言入口
 

@@ -1,9 +1,23 @@
 # Local model/API configuration.
-config/models.json
-config/workflow.local.json
+configs/models.json
+configs/workflow.local.json
 
 # Runtime scratch files.
 .DS_Store
 *.tmp
 __pycache__/
 runtime/
+
+# Python
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+
+# IDE
+.vscode/
+.idea/

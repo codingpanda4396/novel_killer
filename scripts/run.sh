@@ -1,9 +1,10 @@
 #!/bin/bash
 # NovelOps 运行脚本 - 自动加载环境变量
-# 使用方法：./run.sh python3 -m novelops.cli ask "查看状态"
+# 使用方法：./scripts/run.sh python3 -m novelops.cli ask "查看状态"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR" || exit 1
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT" || exit 1
 
 # 加载 .env 文件
 if [ -f ".env" ]; then
