@@ -140,6 +140,20 @@ SQLITE_INCREMENTAL_COLUMNS = {
         ("llm_reader_emotion", "TEXT"),
         ("llm_risk", "TEXT"),
     ],
+    "feedback_logs": [
+        ("experiment_id", "TEXT"),
+        ("book_id", "TEXT"),
+        ("chapter_start", "INTEGER"),
+        ("chapter_end", "INTEGER"),
+        ("views", "INTEGER"),
+        ("read_rate", "REAL"),
+        ("collections", "INTEGER"),
+        ("recommendations", "INTEGER"),
+        ("follows", "INTEGER"),
+        ("chapter_follows", "INTEGER"),
+        ("income", "REAL"),
+        ("notes", "TEXT"),
+    ],
 }
 
 

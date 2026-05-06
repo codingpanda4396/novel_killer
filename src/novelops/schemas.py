@@ -61,6 +61,15 @@ class ReviewResult:
     attempt: int = 0
     llm_used: bool = False
     fallback_reason: str | None = None
+    platform_id: str | None = None
+    opening_hook_score: float | None = None
+    conflict_score: float | None = None
+    payoff_score: float | None = None
+    retention_score: float | None = None
+    novelty_score: float | None = None
+    long_term_arc_score: float | None = None
+    platform_risk_score: float | None = None
+    revision_focus: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

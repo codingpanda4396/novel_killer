@@ -22,6 +22,8 @@ from .publisher import publish_check
 from .readiness import check_framework_readiness, check_project_readiness
 from .reviewer import review_chapter
 from .scout import scout
+from .platforms import list_platforms
+from .experiment import create_experiment, list_experiments, load_experiment, save_experiment, experiment_path, import_metrics, generate_experiment_report, update_experiment_decision, concept_from_radar
 
 
 REQUIRED_PROJECT_DIRS = STANDARD_DIRS + ["corpus/volume_01", "publish/ready"]
@@ -313,6 +315,98 @@ def cmd_prepare_project(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_platform_list(args: argparse.Namespace) -> int:
+    platforms = list_platforms()
+    for pid in platforms:
+        print(pid)
+    return 0
+
+
+def cmd_experiment_init(args: argparse.Namespace) -> int:
+    try:
+        exp_dir = create_experiment(
+            experiment_id=args.experiment_id,
+            project_id=args.project,
+            platform_id=args.platform,
+            hypothesis=args.hypothesis,
+        )
+        print(f"Created experiment: {rel(exp_dir)}")
+        return 0
+    except FileExistsError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+def cmd_experiment_list(args: argparse.Namespace) -> int:
+    project = args.project or args.project  # falls back to global --project
+    experiments = list_experiments(project)
+    if not experiments:
+        print("No experiments found.")
+        return 0
+    for eid in experiments:
+        print(eid)
+    return 0
+
+
+def cmd_experiment_import_metrics(args: argparse.Namespace) -> int:
+    try:
+        result = import_metrics(
+            project_id=args.project,
+            experiment_id=args.experiment_id,
+            csv_path=args.csv_file,
+        )
+        if result["success"]:
+            print(f"Imported {result['imported']} rows")
+            print(f"CSV saved to: {result['csv_path']}")
+            return 0
+        else:
+            for err in result["errors"]:
+                print(f"ERROR: {err}", file=sys.stderr)
+            return 1
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+def cmd_experiment_report(args: argparse.Namespace) -> int:
+    try:
+        report_path = generate_experiment_report(
+            project_id=args.project,
+            experiment_id=args.experiment_id,
+        )
+        print(f"Report generated: {report_path}")
+        return 0
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+def cmd_experiment_decide(args: argparse.Namespace) -> int:
+    try:
+        decision = update_experiment_decision(
+            project_id=args.project,
+            experiment_id=args.experiment_id,
+        )
+        print(f"Decision: {decision}")
+        return 0
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+def cmd_experiment_concept_from_radar(args: argparse.Namespace) -> int:
+    try:
+        concept_path = concept_from_radar(
+            project_id=args.project,
+            experiment_id=args.experiment_id,
+        )
+        print(f"Concept generated: {concept_path}")
+        return 0
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="novelops", description="NovelOps v2 CLI")
     app_cfg = load_app_config()
@@ -377,6 +471,41 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("message")
     p.add_argument("--yes", action="store_true", default=False)
     p.set_defaults(func=cmd_ask)
+
+    # 注册 platform 子命令
+    p_platform = sub.add_parser("platform", help="平台管理")
+    platform_sub = p_platform.add_subparsers(dest="platform_command", required=True)
+    platform_sub.add_parser("list", help="列出所有平台").set_defaults(func=cmd_platform_list)
+
+    # 注册 experiment 子命令
+    p_experiment = sub.add_parser("experiment", help="实验管理")
+    experiment_sub = p_experiment.add_subparsers(dest="experiment_command", required=True)
+    p_exp_init = experiment_sub.add_parser("init", help="初始化新实验")
+    p_exp_init.add_argument("experiment_id", help="实验ID")
+    p_exp_init.add_argument("--project", required=True, help="项目ID")
+    p_exp_init.add_argument("--platform", required=True, help="平台ID")
+    p_exp_init.add_argument("--hypothesis", required=True, help="实验假设")
+    p_exp_init.set_defaults(func=cmd_experiment_init)
+    p_exp_list = experiment_sub.add_parser("list", help="列出项目的所有实验")
+    p_exp_list.add_argument("--project", default=None, help="项目ID（默认使用全局配置）")
+    p_exp_list.set_defaults(func=cmd_experiment_list)
+    p_exp_import = experiment_sub.add_parser("import-metrics", help="导入指标数据")
+    p_exp_import.add_argument("experiment_id", help="实验ID")
+    p_exp_import.add_argument("csv_file", help="CSV文件路径")
+    p_exp_import.add_argument("--project", default=None, help="项目ID")
+    p_exp_import.set_defaults(func=cmd_experiment_import_metrics)
+    p_exp_report = experiment_sub.add_parser("report", help="生成实验报告")
+    p_exp_report.add_argument("experiment_id", help="实验ID")
+    p_exp_report.add_argument("--project", default=None, help="项目ID")
+    p_exp_report.set_defaults(func=cmd_experiment_report)
+    p_exp_decide = experiment_sub.add_parser("decide", help="执行决策评估")
+    p_exp_decide.add_argument("experiment_id", help="实验ID")
+    p_exp_decide.add_argument("--project", default=None, help="项目ID")
+    p_exp_decide.set_defaults(func=cmd_experiment_decide)
+    p_exp_concept = experiment_sub.add_parser("concept-from-radar", help="生成平台适配概念包")
+    p_exp_concept.add_argument("experiment_id", help="实验ID")
+    p_exp_concept.add_argument("--project", default=None, help="项目ID")
+    p_exp_concept.set_defaults(func=cmd_experiment_concept_from_radar)
 
     # 注册 pipeline 子命令
     from .pipeline.cli import register_pipeline_commands

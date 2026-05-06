@@ -1,0 +1,23 @@
+{
+  "fanqie": {
+    "name": "番茄小说",
+    "business_model": "free_reading",
+    "primary_metrics": ["impressions", "reads", "favorites", "follows", "comments", "income"],
+    "review_focus": ["开篇钩子", "低认知成本", "爽点密度", "章尾追读"],
+    "risk_focus": ["题材同质化", "内容审核", "免费阅读转化"]
+  },
+  "qidian": {
+    "name": "起点中文网",
+    "business_model": "paid_serial",
+    "primary_metrics": ["views", "collections", "recommendations", "comments", "chapter_follows", "income"],
+    "review_focus": ["设定新意", "文风稳定", "长期主线", "读者期待管理"],
+    "risk_focus": ["同类竞争强", "开篇慢热", "读者挑剔", "签约门槛"]
+  },
+  "manual": {
+    "name": "手动平台",
+    "business_model": "unknown",
+    "primary_metrics": [],
+    "review_focus": [],
+    "risk_focus": []
+  }
+}

@@ -140,13 +140,25 @@ class FeedbackLog(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     project_id: str = Field(index=True)
+    experiment_id: Optional[str] = Field(default=None, index=True)
     chapter: int = Field(index=True)
     platform: str
+    book_id: Optional[str] = None
+    chapter_start: Optional[int] = None
+    chapter_end: Optional[int] = None
     impressions: Optional[int] = None
     clicks: Optional[int] = None
+    views: Optional[int] = None
     reads: Optional[int] = None
+    read_rate: Optional[float] = None
+    collections: Optional[int] = None
     favorites: Optional[int] = None
+    recommendations: Optional[int] = None
     comments: Optional[int] = None
+    follows: Optional[int] = None
+    chapter_follows: Optional[int] = None
+    income: Optional[float] = None
+    notes: Optional[str] = None
     record_date: str
     raw_payload: Optional[str] = None
 

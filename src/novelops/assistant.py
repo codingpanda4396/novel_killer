@@ -40,9 +40,10 @@ INTENTS = {
     "pipeline_reject",
     "prepare_project",
     "readiness_check",
+    "import_framework",
 }
 AUTO_EXECUTE = {"status", "check", "plan_next", "review_chapter", "index", "explain_review", "show_revision_queue", "serve_help", "pipeline_status"}
-CONFIRM_EXECUTE = {"init_project", "generate", "radar_collect", "radar_analyze", "pipeline_run", "prepare_project"}
+CONFIRM_EXECUTE = {"init_project", "generate", "radar_collect", "radar_analyze", "radar_analyze_text", "pipeline_run", "prepare_project", "import_framework"}
 FORBIDDEN_PATTERNS = [
     ("delete", r"删除|移除|清空|rm\s+-rf"),
     ("overwrite_corpus", r"覆盖.*corpus|重写.*语料|覆盖.*正文语料"),
@@ -78,9 +79,9 @@ class AssistantResponse:
         return asdict(self)
 
 
-def ask(message: str, default_project: str | None = None, execute: bool = False) -> AssistantResponse:
+def ask(message: str, default_project: str | None = None, execute: bool = False, last_intent: str | None = None) -> AssistantResponse:
     orchestrator = AssistantOrchestrator(default_project=default_project)
-    return orchestrator.handle(message, execute=execute)
+    return orchestrator.handle(message, execute=execute, last_intent=last_intent)
 
 
 class AssistantOrchestrator:
@@ -88,10 +89,16 @@ class AssistantOrchestrator:
         self.default_project = default_project or default_project_id()
         self.llm_client = llm_client or LLMClient()
 
-    def handle(self, message: str, execute: bool = False) -> AssistantResponse:
+    def handle(self, message: str, execute: bool = False, last_intent: str | None = None) -> AssistantResponse:
         text = message.strip()
         if not text:
             return _unknown("请告诉我你想查看、检查、规划、生成或审稿的内容。")
+
+        # 检测上下文引用（如"继续"、"再来一次"、"详细说说"）
+        resolved_intent = _resolve_context_reference(text, last_intent)
+        if resolved_intent:
+            text = resolved_intent
+
         forbidden = _forbidden_reason(text)
         if forbidden:
             return AssistantResponse(
@@ -211,6 +218,8 @@ class AssistantOrchestrator:
             return self._execute_prepare_project(intent)
         if intent.name == "readiness_check":
             return self._execute_readiness_check(intent)
+        if intent.name == "import_framework":
+            return self._execute_import_framework(intent)
         raise ConfigError(f"Unsupported intent: {intent.name}")
 
     def _execute_radar_collect(self, intent: AssistantIntent) -> dict[str, Any]:
@@ -308,6 +317,16 @@ class AssistantOrchestrator:
         base = project_dir(project_id)
         result = check_readiness(base)
         return {"project": project_id, **result}
+
+    def _execute_import_framework(self, intent: AssistantIntent) -> dict[str, Any]:
+        from .framework_importer import import_framework_file
+        project_id = intent.project or self.default_project
+        base = project_dir(project_id)
+        framework_path = intent.display_name
+        if not framework_path:
+            raise ConfigError("请提供框架文件路径")
+        result = import_framework_file(base, Path(framework_path))
+        return {"status": "success", "project": project_id, **result}
 
 
 def project_status(project: str) -> dict[str, Any]:
@@ -438,6 +457,41 @@ def _extract_chapter(text: str) -> int | None:
     return int(match.group(1) or match.group(2))
 
 
+CONTEXT_REFERENCES = {
+    "继续": True,
+    "再来一次": True,
+    "再来": True,
+    "接着来": True,
+    "下一步": True,
+    "详细说说": True,
+    "详细说": True,
+    "详细一点": True,
+    "展开说说": True,
+    "是的": True,
+    "好的": True,
+    "确认": True,
+    "确定": True,
+    "ok": True,
+    "OK": True,
+    "行": True,
+    "可以": True,
+    "没问题": True,
+}
+
+
+def _is_context_reference(text: str) -> bool:
+    normalized = text.strip().rstrip("。！!?？")
+    return normalized in CONTEXT_REFERENCES
+
+
+def _resolve_context_reference(text: str, last_intent: str | None) -> str | None:
+    if not _is_context_reference(text):
+        return None
+    if not last_intent:
+        return None
+    return last_intent
+
+
 def _forbidden_reason(text: str) -> str | None:
     for reason, pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, text, flags=re.I):
@@ -452,6 +506,8 @@ def _missing_fields(intent: AssistantIntent) -> list[str]:
         return ["chapter"]
     if intent.name == "init_project":
         return [field for field, value in [("project_id", intent.project_id), ("name", intent.display_name), ("genre", intent.genre)] if not value]
+    if intent.name == "import_framework" and not intent.display_name:
+        return ["framework_file"]
     return []
 
 
@@ -504,6 +560,8 @@ def _equivalent_command(intent: AssistantIntent) -> str:
         return "python3 -m novelops.cli prepare"
     if intent.name == "readiness_check":
         return "python3 -m novelops.cli readiness"
+    if intent.name == "import_framework":
+        return f"python3 -m novelops.cli import-framework {intent.display_name or '<file>'}"
     return f"{prefix} ask <request>"
 
 
@@ -544,6 +602,8 @@ def _success_message(intent: AssistantIntent, result: dict[str, Any]) -> str:
         return f"项目准备{'完成' if result.get('status') == 'success' else '失败'}。项目：{result.get('project', '未知')}"
     if intent.name == "readiness_check":
         return f"准备度检查完成。项目：{result.get('project', '未知')}"
+    if intent.name == "import_framework":
+        return f"框架导入{'成功' if result.get('status') == 'success' else '失败'}。项目：{result.get('project', '未知')}"
     return "已完成。"
 
 
@@ -561,6 +621,8 @@ def _confirmation_message(intent: AssistantIntent) -> str:
         return f"将运行生成流水线，需要确认。等价命令：{command}。"
     if intent.name == "prepare_project":
         return f"将准备新书项目（生成核心设定、角色、大纲等），需要确认。等价命令：{command}。"
+    if intent.name == "import_framework":
+        return f"将导入ChatGPT框架文件到项目，需要确认。等价命令：{command}。"
     return f"该操作需要确认。等价命令：{command}"
 
 

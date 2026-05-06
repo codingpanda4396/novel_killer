@@ -277,7 +277,20 @@ def create_app() -> FastAPI:
             session = session_manager.create_session(user_id, get_default_project(user_id))
 
         session.add_message("user", message)
-        response = ask(message, default_project=session.project_id, execute=payload.execute)
+
+        # 获取上一次助手回复的意图，用于上下文引用
+        last_intent = None
+        for msg in reversed(session.messages):
+            if msg.role == "assistant" and msg.metadata and msg.metadata.get("intent"):
+                last_intent = msg.metadata["intent"]
+                break
+
+        response = ask(
+            message,
+            default_project=session.project_id,
+            execute=payload.execute,
+            last_intent=last_intent,
+        )
         session.add_message("assistant", response.message, {
             "intent": response.intent.name,
             "requires_confirmation": response.requires_confirmation,
@@ -310,7 +323,14 @@ def create_app() -> FastAPI:
         if not last_user_msg:
             raise HTTPException(status_code=400, detail="没有待执行的操作")
 
-        response = ask(last_user_msg.content, default_project=session.project_id, execute=True)
+        # 获取上一次助手回复的意图，用于上下文引用
+        last_intent = None
+        for msg in reversed(session.messages):
+            if msg.role == "assistant" and msg.metadata and msg.metadata.get("intent"):
+                last_intent = msg.metadata["intent"]
+                break
+
+        response = ask(last_user_msg.content, default_project=session.project_id, execute=True, last_intent=last_intent)
 
         long_tasks = {"generate", "pipeline_run", "radar_collect", "radar_analyze", "prepare_project"}
         if response.intent.name in long_tasks:

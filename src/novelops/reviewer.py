@@ -6,12 +6,35 @@ from typing import Any
 from .config import ConfigError, load_project_path, write_json
 from .corpus import get_chapter
 from .llm import LLMClient
+from .platforms import get_platform, get_platform_review_focus, get_platform_risk_focus
 from .schemas import ReviewResult, to_dict
 from .scoring import score_text
 
 
 SCORE_KEYS = ["hook", "conflict", "consistency", "continuity", "ai_trace", "retention", "risk"]
+PLATFORM_SCORE_KEYS = [
+    "opening_hook_score", "conflict_score", "payoff_score",
+    "retention_score", "novelty_score", "long_term_arc_score", "platform_risk_score",
+]
 ALLOWED_ACTIONS = {"accept", "revise", "reject"}
+
+
+def _build_platform_context(platform_id: str | None) -> str:
+    if platform_id is None:
+        return ""
+    try:
+        platform = get_platform(platform_id)
+        review_focus = get_platform_review_focus(platform_id)
+        risk_focus = get_platform_risk_focus(platform_id)
+        context = f"\n\n目标平台：{platform['name']}\n"
+        context += f"商业模式：{platform['business_model']}\n"
+        if review_focus:
+            context += f"审稿重点：{', '.join(review_focus)}\n"
+        if risk_focus:
+            context += f"风险重点：{', '.join(risk_focus)}\n"
+        return context
+    except KeyError:
+        return ""
 
 
 def _read_chapter_text(project_path: Path, chapter: int) -> str:
@@ -75,6 +98,7 @@ def _llm_review(
     llm_client: LLMClient,
     project_path: Path | None = None,
     attempt: int = 0,
+    platform_id: str | None = None,
 ) -> ReviewResult:
     # 读取项目级审稿要求
     project_context = ""
@@ -112,17 +136,28 @@ def _llm_review(
         except Exception:
             pass
     
+    platform_context = _build_platform_context(platform_id)
+    
     system = (
         "你是商业长篇小说的严苛审稿人。只返回 JSON 对象，不要 Markdown。"
         "评分范围 0-100，suggested_action 只能是 accept、revise、reject。"
     )
+    
+    platform_fields = ""
+    if platform_id:
+        platform_fields = """
+如果指定了平台，还需返回平台相关评分字段：
+opening_hook_score（开篇钩子）, conflict_score（冲突）, payoff_score（爽点释放）,
+retention_score（追读）, novelty_score（新意）, long_term_arc_score（长期主线）, platform_risk_score（平台风险）。
+以及 revision_focus（针对平台的修订重点，数组）。"""
+    
     prompt = f"""请审稿第 {chapter:03d} 章，阈值 {threshold}。
 
 必须返回字段：
 score, passed, issues, recommendations, scores, revision_tasks, suggested_action。
 scores 必须包含 hook, conflict, consistency, continuity, ai_trace, retention, risk。
-
-{project_context}
+{platform_fields}
+{project_context}{platform_context}
 
 章节正文：
 {text}
@@ -138,6 +173,7 @@ scores 必须包含 hook, conflict, consistency, continuity, ai_trace, retention
     if action not in ALLOWED_ACTIONS:
         action = "revise" if score < threshold else "accept"
     passed = bool(data.get("passed", score >= threshold)) and score >= threshold and action == "accept"
+    
     return ReviewResult(
         chapter=chapter,
         score=score,
@@ -151,6 +187,15 @@ scores 必须包含 hook, conflict, consistency, continuity, ai_trace, retention
         model=llm_client.settings_for("reviewer").model,
         attempt=attempt,
         llm_used=True,
+        platform_id=platform_id,
+        opening_hook_score=_clamp_score(data.get("opening_hook_score")) if data.get("opening_hook_score") is not None else None,
+        conflict_score=_clamp_score(data.get("conflict_score")) if data.get("conflict_score") is not None else None,
+        payoff_score=_clamp_score(data.get("payoff_score")) if data.get("payoff_score") is not None else None,
+        retention_score=_clamp_score(data.get("retention_score")) if data.get("retention_score") is not None else None,
+        novelty_score=_clamp_score(data.get("novelty_score")) if data.get("novelty_score") is not None else None,
+        long_term_arc_score=_clamp_score(data.get("long_term_arc_score")) if data.get("long_term_arc_score") is not None else None,
+        platform_risk_score=_clamp_score(data.get("platform_risk_score")) if data.get("platform_risk_score") is not None else None,
+        revision_focus=_coerce_list(data.get("revision_focus")),
     )
 
 
@@ -161,8 +206,12 @@ def review_text(
     llm_client: LLMClient | None = None,
     project_path: Path | None = None,
     attempt: int = 0,
+    platform_id: str | None = None,
 ) -> ReviewResult:
-    result = _llm_review(chapter, text, threshold, llm_client or LLMClient(), project_path=project_path, attempt=attempt)
+    result = _llm_review(
+        chapter, text, threshold, llm_client or LLMClient(),
+        project_path=project_path, attempt=attempt, platform_id=platform_id,
+    )
 
     if project_path is not None:
         out = project_path / "reviews" / f"chapter_{chapter:03d}_review.json"
