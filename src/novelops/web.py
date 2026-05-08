@@ -430,7 +430,7 @@ def create_app() -> FastAPI:
             open_queue = conn.execute("SELECT COUNT(*) AS count FROM revision_queue WHERE project_id = ? AND status = 'open'", (project_id,)).fetchone()
         base = Path(project["path"])
         summaries = []
-        for rel in ["bible/00_story_bible.md", "outlines/chapter_queue.md", "state/timeline.md", "state/chapter_summary.md"]:
+        for rel in ["story/bible/00_story_bible.md", "story/outlines/chapter_queue.md", "story/state/timeline.md", "story/state/chapter_summary.md"]:
             path = base / rel
             summaries.append({"name": rel, "exists": path.is_file(), "excerpt": _excerpt(path)})
         return templates.TemplateResponse(

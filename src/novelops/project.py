@@ -5,20 +5,10 @@ from typing import Any
 
 from .config import ConfigError, write_json
 from .paths import project_dir
+from .project_paths import ProjectPaths
 
 
-STANDARD_DIRS = [
-    "bible",
-    "outlines",
-    "state",
-    "corpus",
-    "generation",
-    "reviews",
-    "publish",
-    "intelligence/raw/manual_notes",
-    "intelligence/processed",
-    "intelligence/reports",
-]
+STANDARD_DIRS = ProjectPaths.standard_dirs()
 
 
 def default_project_config(project_id: str, name: str, genre: str, target_platform: str = "中文网文连载平台") -> dict[str, Any]:
@@ -42,14 +32,15 @@ def default_project_config(project_id: str, name: str, genre: str, target_platfo
             "weights": {"word_count": 14, "paragraph_density": 8, "dialogue_density": 8, "hook_terms": 10},
         },
         "directories": {
-            "bible": "bible",
-            "outlines": "outlines",
-            "corpus": "corpus",
-            "state": "state",
-            "generation": "generation",
-            "reviews": "reviews",
-            "intelligence": "intelligence",
-            "publish": "publish",
+            "intelligence": "market",
+            "bible": "story/bible",
+            "outlines": "story/outlines",
+            "state": "story/state",
+            "generation": "production/generation",
+            "reviews": "production/reviews",
+            "corpus": "production/corpus",
+            "publish": "production/publish",
+            "experiments": "production/experiments",
         },
     }
 
@@ -60,14 +51,16 @@ def init_project(project_id: str, name: str, genre: str, target_platform: str = 
     path = project_dir(project_id)
     if path.exists():
         raise ConfigError(f"Project already exists: {path}")
+    cfg = default_project_config(project_id, name, genre, target_platform)
+    write_json(path / "project.json", cfg)
+    paths = ProjectPaths(path)
     for item in STANDARD_DIRS:
         (path / item).mkdir(parents=True, exist_ok=True)
-    (path / "corpus" / "volume_01").mkdir(parents=True, exist_ok=True)
-    (path / "publish" / "ready").mkdir(parents=True, exist_ok=True)
-    write_json(path / "project.json", default_project_config(project_id, name, genre, target_platform))
-    _init_bible_files(path, name, genre)
-    _init_outline_files(path)
-    _init_state_files(path)
+    paths.corpus_volume(1).mkdir(parents=True, exist_ok=True)
+    (paths.publish / "ready").mkdir(parents=True, exist_ok=True)
+    _init_bible_files(paths, name, genre)
+    _init_outline_files(paths)
+    _init_state_files(paths)
     return path
 
 
@@ -77,9 +70,9 @@ def _write_once(path: Path, content: str) -> None:
         path.write_text(content, encoding="utf-8")
 
 
-def _init_bible_files(path: Path, name: str, genre: str) -> None:
+def _init_bible_files(paths: ProjectPaths, name: str, genre: str) -> None:
     """初始化 bible 目录的完整开书资料"""
-    bible = path / "bible"
+    bible = paths.bible
     
     # 00_story_bible.md - 项目总纲
     _write_once(bible / "00_story_bible.md", f"""# {name}
@@ -269,9 +262,9 @@ def _init_bible_files(path: Path, name: str, genre: str) -> None:
 """)
 
 
-def _init_outline_files(path: Path) -> None:
+def _init_outline_files(paths: ProjectPaths) -> None:
     """初始化 outlines 目录的规划文件"""
-    outlines = path / "outlines"
+    outlines = paths.outlines
     
     # chapter_queue.md - 章节队列
     _write_once(outlines / "chapter_queue.md", """# 章节队列
@@ -332,9 +325,9 @@ def _init_outline_files(path: Path) -> None:
 """)
 
 
-def _init_state_files(path: Path) -> None:
+def _init_state_files(paths: ProjectPaths) -> None:
     """初始化 state 目录的连续性追踪文件"""
-    state = path / "state"
+    state = paths.state
     
     # timeline.md - 时间线
     _write_once(state / "timeline.md", """# 时间线

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...llm import LLMClient
+from ...project_paths import ProjectPaths
 from ..state import PipelineState
 
 
@@ -17,6 +18,7 @@ def commercial_review_node(state: PipelineState) -> dict[str, Any]:
     draft = state.get("draft")
     current_chapter = state.get("current_chapter", 1)
     project_path = state["project_path"]
+    paths = ProjectPaths(project_path)
 
     if not draft:
         return {"errors": ["No draft available for commercial rewrite"]}
@@ -44,7 +46,7 @@ def commercial_review_node(state: PipelineState) -> dict[str, Any]:
         )
 
         # 写入文件
-        target = project_path / "generation" / f"chapter_{current_chapter:03d}"
+        target = paths.chapter_dir(current_chapter)
         target.mkdir(parents=True, exist_ok=True)
         (target / "05_commercial_rewrite.md").write_text(commercial.strip() + "\n", encoding="utf-8")
 

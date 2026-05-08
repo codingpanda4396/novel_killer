@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .store import MemoryStore
+from ..project_paths import ProjectPaths
 
 
 def _chunk_markdown(file_path: Path, chunk_size: int = 1000, overlap: int = 100) -> list[str]:
@@ -62,14 +63,15 @@ def _chunk_jsonl(file_path: Path) -> list[dict[str, Any]]:
 
 def _index_protagonist_setting(project_path: Path, project_id: str) -> tuple[list[str], list[str], list[dict]]:
     """索引主角设定"""
+    paths = ProjectPaths(project_path)
     ids, documents, metadatas = [], [], []
     protagonist_files = [
-        "bible/01_characters.md",
-        "bible/03_CHARACTER_BIBLE.md",
-        "bible/00_story_bible.md"
+        paths.bible_file("01_characters.md"),
+        paths.bible_file("03_CHARACTER_BIBLE.md"),
+        paths.bible_file("00_story_bible.md"),
     ]
     for file in protagonist_files:
-        chunks = _chunk_markdown(project_path / file)
+        chunks = _chunk_markdown(file)
         for i, chunk in enumerate(chunks):
             ids.append(f"{project_id}_protagonist_{Path(file).stem}_{i}")
             documents.append(chunk)
@@ -83,9 +85,10 @@ def _index_protagonist_setting(project_path: Path, project_id: str) -> tuple[lis
 
 def _index_first_chapters(project_path: Path, project_id: str) -> tuple[list[str], list[str], list[dict]]:
     """索引前 3 章"""
+    paths = ProjectPaths(project_path)
     ids, documents, metadatas = [], [], []
     for chapter_num in range(1, 4):
-        chapter_file = project_path / "corpus" / "volume_01" / f"chapter_{chapter_num:03d}.md"
+        chapter_file = paths.corpus_volume(1) / f"chapter_{chapter_num:03d}.md"
         chunks = _chunk_markdown(chapter_file)
         for i, chunk in enumerate(chunks):
             ids.append(f"{project_id}_first_ch{chapter_num}_{i}")
@@ -100,10 +103,11 @@ def _index_first_chapters(project_path: Path, project_id: str) -> tuple[list[str
 
 def _index_recent_state(project_path: Path, project_id: str) -> tuple[list[str], list[str], list[dict]]:
     """索引最近 5 章状态"""
+    paths = ProjectPaths(project_path)
     ids, documents, metadatas = [], [], []
-    state_files = ["state/chapter_summary.md", "state/character_state.md"]
+    state_files = [paths.state_file("chapter_summary.md"), paths.state_file("character_state.md")]
     for file in state_files:
-        chunks = _chunk_markdown(project_path / file)
+        chunks = _chunk_markdown(file)
         # 只取最后 5 个 chunk（约对应最近 5 章）
         for i, chunk in enumerate(chunks[-5:]):
             ids.append(f"{project_id}_recent_state_{Path(file).stem}_{i}")
@@ -118,13 +122,14 @@ def _index_recent_state(project_path: Path, project_id: str) -> tuple[list[str],
 
 def _index_volume_outline(project_path: Path, project_id: str) -> tuple[list[str], list[str], list[dict]]:
     """索引当前卷大纲"""
+    paths = ProjectPaths(project_path)
     ids, documents, metadatas = [], [], []
     outline_files = [
-        "outlines/01_volume_outline.md",
-        "outlines/04_VOLUME_OUTLINE.md"
+        paths.outlines_file("01_volume_outline.md"),
+        paths.outlines_file("04_VOLUME_OUTLINE.md"),
     ]
     for file in outline_files:
-        chunks = _chunk_markdown(project_path / file)
+        chunks = _chunk_markdown(file)
         for i, chunk in enumerate(chunks):
             ids.append(f"{project_id}_volume_outline_{Path(file).stem}_{i}")
             documents.append(chunk)
@@ -138,13 +143,14 @@ def _index_volume_outline(project_path: Path, project_id: str) -> tuple[list[str
 
 def _index_forbidden_rules(project_path: Path, project_id: str) -> tuple[list[str], list[str], list[dict]]:
     """索引禁写规则"""
+    paths = ProjectPaths(project_path)
     ids, documents, metadatas = [], [], []
     forbidden_files = [
-        "bible/04_forbidden_rules.md",
-        "bible/13_FORBIDDEN_DEVIATIONS.md"
+        paths.bible_file("04_forbidden_rules.md"),
+        paths.bible_file("13_FORBIDDEN_DEVIATIONS.md"),
     ]
     for file in forbidden_files:
-        chunks = _chunk_markdown(project_path / file)
+        chunks = _chunk_markdown(file)
         for i, chunk in enumerate(chunks):
             ids.append(f"{project_id}_forbidden_{Path(file).stem}_{i}")
             documents.append(chunk)
@@ -174,31 +180,32 @@ def _index_forbidden_rules(project_path: Path, project_id: str) -> tuple[list[st
 
 def _index_hotspot_cases(project_path: Path, project_id: str) -> tuple[list[str], list[str], list[dict]]:
     """索引热点案例"""
+    paths = ProjectPaths(project_path)
     ids, documents, metadatas = [], [], []
     hotspot_files = [
-        "intelligence/processed/topic_candidates.jsonl",
-        "intelligence/reports/topic_scoreboard.md"
+        paths.market_processed / "topic_candidates.jsonl",
+        paths.market_reports / "topic_scoreboard.md",
     ]
     for file in hotspot_files:
-        if file.endswith(".jsonl"):
-            chunks = _chunk_jsonl(project_path / file)
+        if str(file).endswith(".jsonl"):
+            chunks = _chunk_jsonl(file)
             for i, chunk in enumerate(chunks):
                 ids.append(f"{project_id}_hotspot_{i}")
                 documents.append(json.dumps(chunk, ensure_ascii=False))
                 metadatas.append({
                     "project_id": project_id,
                     "doc_type": "hotspot_case",
-                    "source": file
+                    "source": str(file)
                 })
         else:
-            chunks = _chunk_markdown(project_path / file)
+            chunks = _chunk_markdown(file)
             for i, chunk in enumerate(chunks):
-                ids.append(f"{project_id}_hotspot_{Path(file).stem}_{i}")
+                ids.append(f"{project_id}_hotspot_{file.stem}_{i}")
                 documents.append(chunk)
                 metadatas.append({
                     "project_id": project_id,
                     "doc_type": "hotspot_case",
-                    "source": file
+                    "source": str(file)
                 })
     return ids, documents, metadatas
 
@@ -238,9 +245,10 @@ def index_project(project_path: Path, store: MemoryStore) -> int:
 def index_chapter(project_path: Path, chapter: int, chapter_text: str, store: MemoryStore) -> None:
     """章节通过审稿后，增量更新记忆库"""
     project_id = project_path.name
+    paths = ProjectPaths(project_path)
 
     # 读取章节摘要（如果已存在）
-    summary_path = project_path / "state" / "chapter_summary.md"
+    summary_path = paths.state_file("chapter_summary.md")
     if summary_path.exists():
         summary_text = summary_path.read_text(encoding="utf-8")
         # 提取最新章节摘要

@@ -5,6 +5,7 @@ import re
 
 from .config import ConfigError, load_project_path, write_json
 from .corpus import latest_chapter
+from .project_paths import ProjectPaths
 from .schemas import ChapterIntent, ChapterPlan, SceneChain, to_dict
 
 
@@ -18,7 +19,8 @@ def _read_text(path: Path, limit: int = 500) -> str:
 
 
 def _chapter_queue_card(project_path: Path, chapter: int) -> dict[str, str] | None:
-    path = project_path / "outlines" / "chapter_queue.md"
+    paths = ProjectPaths(project_path)
+    path = paths.outlines_file("chapter_queue.md")
     if not path.is_file():
         return None
     for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
@@ -41,8 +43,9 @@ def plan_next(project_path: Path, chapter: int) -> tuple[ChapterPlan, ChapterInt
         cfg = {"genre": "中文网文", "current_volume": {"number": 1}, "rubric": {"forbidden_terms": []}}
     last = latest_chapter(project_path)
     queue_card = _chapter_queue_card(project_path, chapter)
-    bible = _read_text(project_path / "bible" / "00_story_bible.md")
-    state = _read_text(project_path / "state" / "chapter_summary.md") or _read_text(project_path / "state" / "timeline.md")
+    paths = ProjectPaths(project_path)
+    bible = _read_text(paths.bible_file("00_story_bible.md"))
+    state = _read_text(paths.state_file("chapter_summary.md")) or _read_text(paths.state_file("timeline.md"))
     genre = str(cfg.get("genre") or "中文网文")
     volume = int(cfg.get("current_volume", {}).get("number") or (1 if chapter <= 50 else 2))
     title = queue_card["title"] if queue_card else f"第{chapter:03d}章候选计划"
@@ -72,7 +75,7 @@ def plan_next(project_path: Path, chapter: int) -> tuple[ChapterPlan, ChapterInt
             {"name": "钩子", "purpose": "制造追读", "conflict": "新的信息迫使下一章继续行动"},
         ],
     )
-    target = project_path / "generation" / f"chapter_{chapter:03d}"
+    target = paths.chapter_dir(chapter)
     write_json(target / "01_chapter_plan.json", to_dict(plan))
     write_json(target / "02_chapter_intent.json", to_dict(intent))
     write_json(target / "03_scene_chain.json", to_dict(chain))

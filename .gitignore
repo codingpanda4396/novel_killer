@@ -7,6 +7,7 @@ configs/workflow.local.json
 *.tmp
 __pycache__/
 runtime/
+projects/*.bak-*/
 
 # Python
 *.pyc

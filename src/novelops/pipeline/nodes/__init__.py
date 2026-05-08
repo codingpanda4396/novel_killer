@@ -7,6 +7,8 @@ from .commercial_review import commercial_review_node
 from .continuity_check import continuity_check_node
 from .rewrite import rewrite_node
 from .save import save_node
+from .desire_synthesis import desire_synthesis_node
+from .panel_review import panel_review_node
 
 __all__ = [
     "market_research_node",
@@ -18,4 +20,6 @@ __all__ = [
     "continuity_check_node",
     "rewrite_node",
     "save_node",
+    "desire_synthesis_node",
+    "panel_review_node",
 ]

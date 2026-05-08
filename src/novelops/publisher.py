@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .config import write_json
 from .corpus import get_chapter
+from .project_paths import ProjectPaths
 from .reviewer import review_text
 from .schemas import PublishCheckReport, to_dict
 
@@ -11,6 +12,7 @@ from .schemas import PublishCheckReport, to_dict
 def publish_check(project: str, project_path: Path, start: int, end: int, threshold: float) -> PublishCheckReport:
     results = []
     revision_queue: list[int] = []
+    paths = ProjectPaths(project_path)
     for chapter in range(start, end + 1):
         item = get_chapter(project_path, chapter)
         result = review_text(chapter, item.text, threshold)
@@ -31,9 +33,9 @@ def publish_check(project: str, project_path: Path, start: int, end: int, thresh
         average_score=average,
         revision_queue=revision_queue,
     )
-    report_path = project_path / "reviews" / f"publish_check_{start:03d}_{end:03d}.json"
+    report_path = paths.reviews / f"publish_check_{start:03d}_{end:03d}.json"
     write_json(report_path, to_dict(report) | {"chapters": [to_dict(result) for result in results]})
-    queue_path = project_path / "reviews" / "revision_queue.md"
+    queue_path = paths.reviews / "revision_queue.md"
     queue_path.write_text(
         "# Revision Queue\n\n"
         + ("\n".join(f"- Chapter {chapter:03d}" for chapter in revision_queue) or "No chapters below threshold.")

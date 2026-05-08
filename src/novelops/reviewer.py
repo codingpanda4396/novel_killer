@@ -7,6 +7,7 @@ from .config import ConfigError, load_project_path, write_json
 from .corpus import get_chapter
 from .llm import LLMClient
 from .platforms import get_platform, get_platform_review_focus, get_platform_risk_focus
+from .project_paths import ProjectPaths
 from .schemas import ReviewResult, to_dict
 from .scoring import score_text
 
@@ -41,9 +42,10 @@ def _read_chapter_text(project_path: Path, chapter: int) -> str:
     try:
         return get_chapter(project_path, chapter).text
     except FileNotFoundError:
-        generation = project_path / "generation" / f"chapter_{chapter:03d}"
+        paths = ProjectPaths(project_path)
+        chapter_dir = paths.chapter_dir(chapter)
         for name in ["11_revision_v2.md", "09_revision_v1.md", "07_final_candidate.md", "06_humanized_rewrite.md"]:
-            path = generation / name
+            path = chapter_dir / name
             if path.is_file():
                 return path.read_text(encoding="utf-8")
         raise
@@ -104,6 +106,7 @@ def _llm_review(
     project_context = ""
     if project_path is not None:
         try:
+            paths = ProjectPaths(project_path)
             # 读取项目配置
             project_config = load_project_path(project_path)
             rubric = project_config.get("rubric", {})
@@ -111,13 +114,13 @@ def _llm_review(
             forbidden_terms = rubric.get("forbidden_terms", [])
             
             # 读取审稿检查清单
-            checklist_path = project_path / "bible" / "11_review_checklist.md"
+            checklist_path = paths.bible_file("11_review_checklist.md")
             checklist = ""
             if checklist_path.exists():
                 checklist = checklist_path.read_text(encoding="utf-8", errors="ignore")[:1000]
             
             # 读取禁写规则
-            forbidden_path = project_path / "bible" / "04_forbidden_rules.md"
+            forbidden_path = paths.bible_file("04_forbidden_rules.md")
             forbidden_rules = ""
             if forbidden_path.exists():
                 forbidden_rules = forbidden_path.read_text(encoding="utf-8", errors="ignore")[:800]
@@ -214,7 +217,8 @@ def review_text(
     )
 
     if project_path is not None:
-        out = project_path / "reviews" / f"chapter_{chapter:03d}_review.json"
+        paths = ProjectPaths(project_path)
+        out = paths.review_path(chapter)
         write_json(out, to_dict(result))
     return result
 
@@ -228,7 +232,8 @@ def review_chapter(
     text = _read_chapter_text(project_path, chapter)
     result = review_text(chapter, text, threshold, llm_client=llm_client, project_path=project_path)
     if not result.passed:
-        queue = project_path / "reviews" / "revision_queue" / f"chapter_{chapter:03d}.md"
+        paths = ProjectPaths(project_path)
+        queue = paths.revision_queue() / f"chapter_{chapter:03d}.md"
         queue.parent.mkdir(parents=True, exist_ok=True)
         queue.write_text(
             f"# Chapter {chapter:03d} Revision Required\n\n"

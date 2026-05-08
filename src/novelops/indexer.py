@@ -10,6 +10,7 @@ from .config import db_path, load_project_path
 from .corpus import list_chapters, parse_title
 from .db.migrate import init_db
 from .paths import all_project_dirs, project_dir
+from .project_paths import ProjectPaths
 
 
 SCHEMA = """
@@ -161,7 +162,8 @@ def _word_count(text: str) -> int:
 
 
 def _index_generated(conn: sqlite3.Connection, project_id: str, project_path: Path) -> None:
-    for directory in sorted((project_path / "generation").glob("chapter_*")):
+    paths = ProjectPaths(project_path)
+    for directory in sorted(paths.generation.glob("chapter_*")):
         match = re.search(r"chapter_(\d+)", directory.name)
         if not match or not directory.is_dir():
             continue
@@ -190,7 +192,8 @@ def _index_generated(conn: sqlite3.Connection, project_id: str, project_path: Pa
 
 
 def _index_chapter_plans(conn: sqlite3.Connection, project_id: str, project_path: Path) -> None:
-    for plan_path in sorted((project_path / "generation").glob("chapter_*/01_chapter_plan.json")):
+    paths = ProjectPaths(project_path)
+    for plan_path in sorted(paths.generation.glob("chapter_*/01_chapter_plan.json")):
         match = re.search(r"chapter_(\d+)", str(plan_path.parent.name))
         if not match:
             continue
@@ -223,7 +226,8 @@ def _pick_text(data: dict[str, Any], *keys: str) -> str | None:
 
 
 def _index_reviews(conn: sqlite3.Connection, project_id: str, project_path: Path) -> None:
-    for report in sorted((project_path / "reviews").glob("chapter_*_review.json")):
+    paths = ProjectPaths(project_path)
+    for report in sorted(paths.reviews.glob("chapter_*_review.json")):
         match = re.search(r"chapter_(\d+)_review", report.name)
         if not match:
             continue
@@ -245,7 +249,8 @@ def _index_reviews(conn: sqlite3.Connection, project_id: str, project_path: Path
 
 
 def _index_revision_queue(conn: sqlite3.Connection, project_id: str, project_path: Path) -> None:
-    for item in sorted((project_path / "reviews" / "revision_queue").glob("chapter_*.md")):
+    paths = ProjectPaths(project_path)
+    for item in sorted(paths.revision_queue().glob("chapter_*.md")):
         match = re.search(r"chapter_(\d+)", item.name)
         if not match:
             continue

@@ -12,6 +12,7 @@ from .corpus import list_chapters
 from .indexer import rebuild_index
 from .llm import LLMClient
 from .paths import project_dir, rel
+from .project_paths import ProjectPaths
 from .readiness import check_project_readiness
 from .schemas import to_dict
 
@@ -329,8 +330,9 @@ def _next_chapter(config: dict[str, Any] | None, chapters: list[Any]) -> int | N
 
 
 def _latest_chapter_number(project_path: Path) -> int | None:
+    paths = ProjectPaths(project_path)
     numbers = []
-    for directory in (project_path / "generation").glob("chapter_*"):
+    for directory in paths.generation.glob("chapter_*"):
         try:
             numbers.append(int(directory.name.rsplit("_", 1)[1]))
         except (IndexError, ValueError):
@@ -339,14 +341,16 @@ def _latest_chapter_number(project_path: Path) -> int | None:
 
 
 def _latest_generation(project_path: Path) -> str | None:
-    directories = sorted(path for path in (project_path / "generation").glob("chapter_*") if path.is_dir())
+    paths = ProjectPaths(project_path)
+    directories = sorted(path for path in paths.generation.glob("chapter_*") if path.is_dir())
     return directories[-1].name if directories else None
 
 
 def _latest_review(project_path: Path) -> dict[str, Any] | None:
-    reports = sorted((project_path / "reviews").glob("chapter_*_review.json"))
+    paths = ProjectPaths(project_path)
+    reports = sorted(paths.reviews.glob("chapter_*_review.json"))
     if not reports:
-        generation_reports = sorted((project_path / "generation").glob("chapter_*/*review_gate.json"))
+        generation_reports = sorted(paths.generation.glob("chapter_*/*review_gate.json"))
         reports = generation_reports
     if not reports:
         return None
@@ -357,7 +361,8 @@ def _latest_review(project_path: Path) -> dict[str, Any] | None:
 
 
 def _open_revision_count(project_path: Path) -> int:
-    return len(list((project_path / "reviews" / "revision_queue").glob("chapter_*.md")))
+    paths = ProjectPaths(project_path)
+    return len(list(paths.revision_queue().glob("chapter_*.md")))
 
 
 def _readiness_to_dict(report: Any) -> dict[str, Any]:

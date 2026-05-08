@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from .project_paths import ProjectPaths
+
 
 CHAPTER_RE = re.compile(r"chapter_(\d{2,3})\.md$")
 TITLE_RE = re.compile(r"^#\s*第\s*(\d+)\s*章\s*(.+?)\s*$")
@@ -22,7 +24,8 @@ class CorpusChapter:
 
 
 def volume_dir(project_path: Path, volume: int = 1) -> Path:
-    return project_path / "corpus" / f"volume_{volume:02d}"
+    paths = ProjectPaths(project_path)
+    return paths.corpus_volume(volume)
 
 
 def parse_title(text: str, fallback: str) -> str:

@@ -16,58 +16,17 @@ from .nodes import (
     rewrite_node,
     save_node,
 )
+from .nodes.desire_synthesis import desire_synthesis_node
+from .nodes.panel_review import panel_review_node
 from .state import PipelineState
 
 
-def _should_continue_to_market_research(state: PipelineState) -> str:
-    """判断是否继续到市场调研"""
+def _should_continue_to_desire_synthesis(state: PipelineState) -> str:
+    """判断是否继续到欲望合成"""
+    config = load_pipeline_config(state.get("project_path"))
+    if config.get("desire_synthesis_enabled", False):
+        return "desire_synthesis"
     return "market_research"
-
-
-def _should_continue_to_concept_design(state: PipelineState) -> str:
-    """判断是否继续到概念设计"""
-    if state.get("errors"):
-        return "error"
-    return "concept_design"
-
-
-def _should_continue_to_outline(state: PipelineState) -> str:
-    """判断是否继续到大纲生成"""
-    if state.get("errors"):
-        return "error"
-    config = load_pipeline_config(state.get("project_path"))
-    approval_points = get_approval_points(config)
-
-    if "concept_design" in approval_points and state.get("mode") == "interactive":
-        if not state.get("approved"):
-            return "wait_approval"
-    return "outline"
-
-
-def _should_continue_to_chapter_plan(state: PipelineState) -> str:
-    """判断是否继续到章节规划"""
-    if state.get("errors"):
-        return "error"
-    config = load_pipeline_config(state.get("project_path"))
-    approval_points = get_approval_points(config)
-
-    if "outline" in approval_points and state.get("mode") == "interactive":
-        if not state.get("approved"):
-            return "wait_approval"
-    return "chapter_plan"
-
-
-def _should_continue_to_draft(state: PipelineState) -> str:
-    """判断是否继续到草稿生成"""
-    if state.get("errors"):
-        return "error"
-    config = load_pipeline_config(state.get("project_path"))
-    approval_points = get_approval_points(config)
-
-    if "chapter_plan" in approval_points and state.get("mode") == "interactive":
-        if not state.get("approved"):
-            return "wait_approval"
-    return "draft"
 
 
 def _should_continue_after_rewrite(state: PipelineState) -> str:
@@ -89,6 +48,10 @@ def _should_continue_after_rewrite(state: PipelineState) -> str:
 
     review_result = state.get("review_result", {})
     if review_result.get("passed") and review_result.get("suggested_action") == "accept":
+        # Check if panel review is enabled
+        config = load_pipeline_config(state.get("project_path"))
+        if config.get("panel_review_enabled", False):
+            return "panel_review"
         return "save"
 
     # 未通过但没有错误，也进入保存（可能是边界情况）
@@ -127,6 +90,7 @@ def build_pipeline_graph() -> StateGraph:
     graph = StateGraph(PipelineState)
 
     # 添加节点
+    graph.add_node("desire_synthesis", desire_synthesis_node)
     graph.add_node("market_research", market_research_node)
     graph.add_node("concept_design", concept_design_node)
     graph.add_node("outline", outline_node)
@@ -135,12 +99,16 @@ def build_pipeline_graph() -> StateGraph:
     graph.add_node("commercial_review", commercial_review_node)
     graph.add_node("continuity_check", continuity_check_node)
     graph.add_node("rewrite", rewrite_node)
+    graph.add_node("panel_review", panel_review_node)
     graph.add_node("save", save_node)
     graph.add_node("error", _handle_error)
     graph.add_node("wait_approval", _wait_approval)
 
     # 设置入口点
-    graph.set_entry_point("market_research")
+    graph.set_entry_point("desire_synthesis")
+
+    # desire_synthesis → market_research (always, desire is optional pre-step)
+    graph.add_edge("desire_synthesis", "market_research")
 
     # 添加边
     graph.add_conditional_edges(
@@ -193,10 +161,14 @@ def build_pipeline_graph() -> StateGraph:
         _should_continue_after_rewrite,
         {
             "draft": "draft",  # 重试
+            "panel_review": "panel_review",
             "save": "save",
             "error": "error",
         },
     )
+
+    # panel_review → save (always)
+    graph.add_edge("panel_review", "save")
 
     # 保存后的条件路由
     graph.add_conditional_edges(

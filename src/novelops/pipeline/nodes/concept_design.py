@@ -7,6 +7,7 @@ from typing import Any
 from ...config import write_json
 from ...llm import LLMClient
 from ...project import init_project
+from ...project_paths import ProjectPaths
 from ..state import PipelineState
 
 
@@ -21,6 +22,7 @@ def concept_design_node(state: PipelineState) -> dict[str, Any]:
     market_data = state.get("market_data")
     project_id = state["project_id"]
     project_path = state["project_path"]
+    paths = ProjectPaths(project_path)
 
     # 如果项目已存在，跳过创建
     if project_path.exists() and (project_path / "project.json").is_file():
@@ -84,7 +86,7 @@ def concept_design_node(state: PipelineState) -> dict[str, Any]:
         write_json(project_path / "project.json", project_config)
 
         # 写入 bible 文件
-        _write_bible_files(project_path, topic_name, genre, concept)
+        _write_bible_files(paths, topic_name, genre, concept)
 
         return {
             "concept": concept,
@@ -98,9 +100,9 @@ def concept_design_node(state: PipelineState) -> dict[str, Any]:
         }
 
 
-def _write_bible_files(project_path: Path, name: str, genre: str, concept: dict[str, Any]) -> None:
+def _write_bible_files(paths: ProjectPaths, name: str, genre: str, concept: dict[str, Any]) -> None:
     """写入 bible 文件"""
-    bible_path = project_path / "bible"
+    bible_path = paths.bible
 
     # 写入 story_bible.md
     world_setting = concept.get("world_setting", {})

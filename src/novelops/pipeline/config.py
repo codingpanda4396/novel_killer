@@ -16,6 +16,8 @@ DEFAULT_PIPELINE_CONFIG = {
     "max_retry_attempts": 2,
     "chapters_per_run": 1,
     "integrate_radar": True,
+    "desire_synthesis_enabled": False,
+    "panel_review_enabled": False,
     "default_genre": "urban_fantasy",
     "default_platform": "fanqie",
 }

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..config import ConfigError, default_project_id, load_app_config
 from ..paths import project_dir
+from ..project_paths import ProjectPaths
 from .config import load_pipeline_config, save_pipeline_config
 from .graph import compile_pipeline
 from .state import create_initial_state
@@ -86,6 +87,7 @@ def cmd_pipeline_status(args: argparse.Namespace) -> int:
     """查看流水线状态"""
     project_id = args.project or default_project_id()
     project_path = project_dir(project_id)
+    paths = ProjectPaths(project_path)
 
     if not project_path.exists():
         print(f"ERROR: Project not found: {project_id}", file=sys.stderr)
@@ -101,7 +103,7 @@ def cmd_pipeline_status(args: argparse.Namespace) -> int:
     print(f"Max retry attempts: {config.get('max_retry_attempts', 2)}")
 
     # 检查已生成的章节
-    generation_path = project_path / "generation"
+    generation_path = paths.generation
     if generation_path.exists():
         chapters = sorted(generation_path.glob("chapter_*"))
         print(f"\nGenerated chapters: {len(chapters)}")

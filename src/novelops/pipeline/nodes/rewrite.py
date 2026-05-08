@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...llm import LLMClient
+from ...project_paths import ProjectPaths
 from ...reviewer import review_text
 from ..state import PipelineState
 
@@ -18,6 +19,7 @@ def rewrite_node(state: PipelineState) -> dict[str, Any]:
     final_draft = state.get("final_draft")
     current_chapter = state.get("current_chapter", 1)
     project_path = state["project_path"]
+    paths = ProjectPaths(project_path)
     retry_count = state.get("retry_count", 0)
     max_retry_attempts = state.get("max_retry_attempts", 2)
 
@@ -50,7 +52,7 @@ def rewrite_node(state: PipelineState) -> dict[str, Any]:
         review_result = to_dict(result)
 
         # 写入审稿结果
-        target = project_path / "generation" / f"chapter_{current_chapter:03d}"
+        target = paths.chapter_dir(current_chapter)
         target.mkdir(parents=True, exist_ok=True)
         from ...config import write_json
         write_json(target / "08_review_gate.json", review_result)

@@ -9,6 +9,7 @@ from .config import ConfigError, write_json
 from .llm import LLMClient
 from .paths import project_dir
 from .project import STANDARD_DIRS, default_project_config
+from .project_paths import ProjectPaths
 from .readiness import ReadinessReport, check_framework_readiness
 
 
@@ -186,19 +187,19 @@ def apply_overrides(spec: FrameworkImportSpec, name: str | None = None, target_p
 def planned_files() -> list[str]:
     return [
         "project.json",
-        "bible/00_story_bible.md",
-        "bible/01_characters.md",
-        "bible/02_power_system.md",
-        "bible/03_style_guide.md",
-        "bible/04_forbidden_rules.md",
-        "bible/11_review_checklist.md",
-        "outlines/volume_outline.md",
-        "outlines/first_40_chapters.md",
-        "outlines/chapter_queue.md",
-        "state/timeline.md",
-        "state/chapter_summary.md",
-        "state/character_state.md",
-        "state/active_threads.md",
+        "story/bible/00_story_bible.md",
+        "story/bible/01_characters.md",
+        "story/bible/02_power_system.md",
+        "story/bible/03_style_guide.md",
+        "story/bible/04_forbidden_rules.md",
+        "story/bible/11_review_checklist.md",
+        "story/outlines/volume_outline.md",
+        "story/outlines/first_40_chapters.md",
+        "story/outlines/chapter_queue.md",
+        "story/state/timeline.md",
+        "story/state/chapter_summary.md",
+        "story/state/character_state.md",
+        "story/state/active_threads.md",
         "records/upload_records.md",
         "records/data_feedback.md",
         "records/prompt_iterations.md",
@@ -216,22 +217,23 @@ def preview_readiness(project_id: str, spec: FrameworkImportSpec) -> ReadinessRe
 
 
 def write_import_files(path: Path, project_id: str, spec: FrameworkImportSpec) -> None:
+    paths = ProjectPaths(path)
     write_json(path / "project.json", _project_config(project_id, spec))
-    _write(path / "bible" / "00_story_bible.md", story_bible(spec))
-    _write(path / "bible" / "01_characters.md", characters_bible(spec))
-    _write(path / "bible" / "02_power_system.md", power_system_bible(spec))
-    _write(path / "bible" / "03_style_guide.md", style_guide(spec))
-    _write(path / "bible" / "04_forbidden_rules.md", forbidden_rules(spec))
-    _write(path / "bible" / "11_review_checklist.md", review_checklist(spec))
-    _write(path / "outlines" / "volume_outline.md", volume_outline(spec))
-    _write(path / "outlines" / "first_40_chapters.md", first_40_chapters(spec))
-    _write(path / "outlines" / "chapter_queue.md", chapter_queue(spec))
-    _write(path / "state" / "timeline.md", "# 时间线\n\n## 导入初始状态\n- 开局从第 1 章章节队列开始推进。\n")
-    _write(path / "state" / "chapter_summary.md", "# 章节摘要\n\n尚未生成正文。生成每章后在此记录核心事件、状态变化、伏笔埋设与回收。\n")
-    _write(path / "state" / "character_state.md", "# 角色状态\n\n## 主角\n" + bullet_dict(spec.protagonist) + "\n")
-    _write(path / "state" / "active_threads.md", "# 活跃线索\n\n" + bullets(spec.required_beats or ["按前 40 章队列推进冷启动测试。"]))
-    _write(path / "state" / "open_threads.md", "# 待回收线索\n\n| 线索 | 埋设章节 | 预计回收章节 | 状态 |\n| --- | --- | --- | --- |\n")
-    _write(path / "state" / "continuity_index.md", "# 连续性索引\n\n- 项目总纲：bible/00_story_bible.md\n- 力量体系：bible/02_power_system.md\n- 前 40 章队列：outlines/chapter_queue.md\n")
+    _write(paths.bible_file("00_story_bible.md"), story_bible(spec))
+    _write(paths.bible_file("01_characters.md"), characters_bible(spec))
+    _write(paths.bible_file("02_power_system.md"), power_system_bible(spec))
+    _write(paths.bible_file("03_style_guide.md"), style_guide(spec))
+    _write(paths.bible_file("04_forbidden_rules.md"), forbidden_rules(spec))
+    _write(paths.bible_file("11_review_checklist.md"), review_checklist(spec))
+    _write(paths.outlines_file("volume_outline.md"), volume_outline(spec))
+    _write(paths.outlines_file("first_40_chapters.md"), first_40_chapters(spec))
+    _write(paths.outlines_file("chapter_queue.md"), chapter_queue(spec))
+    _write(paths.state_file("timeline.md"), "# 时间线\n\n## 导入初始状态\n- 开局从第 1 章章节队列开始推进。\n")
+    _write(paths.state_file("chapter_summary.md"), "# 章节摘要\n\n尚未生成正文。生成每章后在此记录核心事件、状态变化、伏笔埋设与回收。\n")
+    _write(paths.state_file("character_state.md"), "# 角色状态\n\n## 主角\n" + bullet_dict(spec.protagonist) + "\n")
+    _write(paths.state_file("active_threads.md"), "# 活跃线索\n\n" + bullets(spec.required_beats or ["按前 40 章队列推进冷启动测试。"]))
+    _write(paths.state_file("open_threads.md"), "# 待回收线索\n\n| 线索 | 埋设章节 | 预计回收章节 | 状态 |\n| --- | --- | --- | --- |\n")
+    _write(paths.state_file("continuity_index.md"), "# 连续性索引\n\n- 项目总纲：bible/00_story_bible.md\n- 力量体系：bible/02_power_system.md\n- 前 40 章队列：outlines/chapter_queue.md\n")
     _write(path / "records" / "upload_records.md", "# 上传记录\n\n| 日期 | 平台 | 章节范围 | 字数 | 备注 |\n| --- | --- | --- | --- | --- |\n")
     _write(path / "records" / "data_feedback.md", "# 数据反馈\n\n| 日期 | 章节范围 | 曝光 | 阅读 | 追读 | 收藏 | 备注 |\n| --- | --- | --- | --- | --- | --- | --- |\n")
     _write(path / "records" / "prompt_iterations.md", "# 提示词迭代\n\n| 日期 | 触发问题 | 调整内容 | 验证结果 |\n| --- | --- | --- | --- |\n")

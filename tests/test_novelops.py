@@ -273,8 +273,8 @@ class NovelOpsTests(unittest.TestCase):
             with patch("novelops.project.project_dir", lambda project_id: root / project_id):
                 path = init_project("demo", "测试项目", "仙侠升级流")
             self.assertTrue((path / "project.json").is_file())
-            self.assertTrue((path / "bible" / "00_story_bible.md").is_file())
-            self.assertTrue((path / "corpus" / "volume_01").is_dir())
+            self.assertTrue((path / "story" / "bible" / "00_story_bible.md").is_file())
+            self.assertTrue((path / "production" / "corpus" / "volume_01").is_dir())
             data = json.loads((path / "project.json").read_text(encoding="utf-8"))
             self.assertEqual(data["language"], "zh-CN")
             self.assertIn("rubric", data)
@@ -456,31 +456,31 @@ class NovelOpsTests(unittest.TestCase):
             with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
                 project_path = init_project("test_novel", "测试小说", "都市异能")
                 
-                # 检查基础目录
-                self.assertTrue((project_path / "bible").is_dir())
-                self.assertTrue((project_path / "outlines").is_dir())
-                self.assertTrue((project_path / "state").is_dir())
+                # 检查基础目录（新结构）
+                self.assertTrue((project_path / "story" / "bible").is_dir())
+                self.assertTrue((project_path / "story" / "outlines").is_dir())
+                self.assertTrue((project_path / "story" / "state").is_dir())
                 
                 # 检查 bible 文件
-                self.assertTrue((project_path / "bible" / "00_story_bible.md").exists())
-                self.assertTrue((project_path / "bible" / "01_characters.md").exists())
-                self.assertTrue((project_path / "bible" / "02_power_system.md").exists())
-                self.assertTrue((project_path / "bible" / "03_style_guide.md").exists())
-                self.assertTrue((project_path / "bible" / "04_forbidden_rules.md").exists())
-                self.assertTrue((project_path / "bible" / "11_review_checklist.md").exists())
+                self.assertTrue((project_path / "story" / "bible" / "00_story_bible.md").exists())
+                self.assertTrue((project_path / "story" / "bible" / "01_characters.md").exists())
+                self.assertTrue((project_path / "story" / "bible" / "02_power_system.md").exists())
+                self.assertTrue((project_path / "story" / "bible" / "03_style_guide.md").exists())
+                self.assertTrue((project_path / "story" / "bible" / "04_forbidden_rules.md").exists())
+                self.assertTrue((project_path / "story" / "bible" / "11_review_checklist.md").exists())
                 
                 # 检查 outlines 文件
-                self.assertTrue((project_path / "outlines" / "chapter_queue.md").exists())
-                self.assertTrue((project_path / "outlines" / "volume_outline.md").exists())
-                self.assertTrue((project_path / "outlines" / "first_30_chapters.md").exists())
+                self.assertTrue((project_path / "story" / "outlines" / "chapter_queue.md").exists())
+                self.assertTrue((project_path / "story" / "outlines" / "volume_outline.md").exists())
+                self.assertTrue((project_path / "story" / "outlines" / "first_30_chapters.md").exists())
                 
                 # 检查 state 文件
-                self.assertTrue((project_path / "state" / "timeline.md").exists())
-                self.assertTrue((project_path / "state" / "chapter_summary.md").exists())
-                self.assertTrue((project_path / "state" / "character_state.md").exists())
-                self.assertTrue((project_path / "state" / "active_threads.md").exists())
-                self.assertTrue((project_path / "state" / "open_threads.md").exists())
-                self.assertTrue((project_path / "state" / "continuity_index.md").exists())
+                self.assertTrue((project_path / "story" / "state" / "timeline.md").exists())
+                self.assertTrue((project_path / "story" / "state" / "chapter_summary.md").exists())
+                self.assertTrue((project_path / "story" / "state" / "character_state.md").exists())
+                self.assertTrue((project_path / "story" / "state" / "active_threads.md").exists())
+                self.assertTrue((project_path / "story" / "state" / "open_threads.md").exists())
+                self.assertTrue((project_path / "story" / "state" / "continuity_index.md").exists())
                 
                 # 检查 project.json
                 config = load_project("test_novel")
@@ -526,10 +526,10 @@ class NovelOpsTests(unittest.TestCase):
                 preview = import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
                 project = Path(tmp) / "xianghuo_demo"
                 self.assertTrue((project / "project.json").is_file())
-                self.assertTrue((project / "bible" / "02_power_system.md").is_file())
-                self.assertTrue((project / "outlines" / "first_40_chapters.md").is_file())
+                self.assertTrue((project / "story" / "bible" / "02_power_system.md").is_file())
+                self.assertTrue((project / "story" / "outlines" / "first_40_chapters.md").is_file())
                 self.assertTrue((project / "records" / "data_feedback.md").is_file())
-                queue_rows = [line for line in (project / "outlines" / "chapter_queue.md").read_text(encoding="utf-8").splitlines() if line.startswith("| ") and line[2].isdigit()]
+                queue_rows = [line for line in (project / "story" / "outlines" / "chapter_queue.md").read_text(encoding="utf-8").splitlines() if line.startswith("| ") and line[2].isdigit()]
                 self.assertEqual(len(queue_rows), 40)
                 config = json.loads((project / "project.json").read_text(encoding="utf-8"))
                 self.assertGreaterEqual(len(config["rubric"]["hook_terms"]), 5)
@@ -552,7 +552,7 @@ class NovelOpsTests(unittest.TestCase):
             with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
                 import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
                 project = Path(tmp) / "xianghuo_demo"
-                (project / "outlines" / "chapter_queue.md").write_text("| 章号 | 工作标题 | 核心任务 | 必须承接 | 状态 |\n", encoding="utf-8")
+                (project / "story" / "outlines" / "chapter_queue.md").write_text("| 章号 | 工作标题 | 核心任务 | 必须承接 | 状态 |\n", encoding="utf-8")
                 config = json.loads((project / "project.json").read_text(encoding="utf-8"))
                 report = check_framework_readiness(project, config)
                 self.assertFalse(report.ready)
@@ -562,7 +562,7 @@ class NovelOpsTests(unittest.TestCase):
             with patch("novelops.paths.PROJECTS_DIR", Path(tmp)):
                 import_framework_project("xianghuo_demo", "# 框架", llm_client=FakeFrameworkClient())  # type: ignore[arg-type]
                 project = Path(tmp) / "xianghuo_demo"
-                queue = project / "outlines" / "chapter_queue.md"
+                queue = project / "story" / "outlines" / "chapter_queue.md"
                 queue.write_text(queue.read_text(encoding="utf-8").replace("显圣反杀", "公开胜利"), encoding="utf-8")
                 config = json.loads((project / "project.json").read_text(encoding="utf-8"))
                 report = check_framework_readiness(project, config)

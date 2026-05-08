@@ -5,6 +5,7 @@ from typing import Any
 
 from .config import load_project_path, write_json
 from .llm import LLMClient
+from .project_paths import ProjectPaths
 
 
 def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None = None) -> dict[str, Any]:
@@ -19,6 +20,7 @@ def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None
     """
     client = llm_client or LLMClient()
     project_config = load_project_path(project_path)
+    paths = ProjectPaths(project_path)
     
     result = {
         "story_bible_updated": False,
@@ -30,7 +32,7 @@ def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None
     }
     
     # 读取现有内容
-    story_bible_path = project_path / "bible" / "00_story_bible.md"
+    story_bible_path = paths.bible_file("00_story_bible.md")
     story_bible = story_bible_path.read_text(encoding="utf-8") if story_bible_path.exists() else ""
     
     # 1. 生成核心卖点和主角设定
@@ -80,7 +82,7 @@ def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None
         stage="prepare_characters"
     )
     
-    characters_path = project_path / "bible" / "01_characters.md"
+    characters_path = paths.bible_file("01_characters.md")
     characters_path.write_text(characters, encoding="utf-8")
     result["characters_updated"] = True
     print(f"✓ 已更新 {characters_path.relative_to(project_path)}")
@@ -106,7 +108,7 @@ def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None
         stage="prepare_power_system"
     )
     
-    power_path = project_path / "bible" / "02_power_system.md"
+    power_path = paths.bible_file("02_power_system.md")
     power_path.write_text(power_system, encoding="utf-8")
     result["power_system_updated"] = True
     print(f"✓ 已更新 {power_path.relative_to(project_path)}")
@@ -138,7 +140,7 @@ def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None
         stage="prepare_first_30_chapters"
     )
     
-    first_30_path = project_path / "outlines" / "first_30_chapters.md"
+    first_30_path = paths.outlines_file("first_30_chapters.md")
     first_30_path.write_text(first_30, encoding="utf-8")
     result["first_30_chapters_updated"] = True
     print(f"✓ 已更新 {first_30_path.relative_to(project_path)}")
@@ -163,7 +165,7 @@ def prepare_project_interactive(project_path: Path, llm_client: LLMClient | None
         stage="prepare_chapter_queue"
     )
     
-    queue_path = project_path / "outlines" / "chapter_queue.md"
+    queue_path = paths.outlines_file("chapter_queue.md")
     queue_path.write_text(f"# 章节队列\n\n{queue}\n", encoding="utf-8")
     result["chapter_queue_updated"] = True
     print(f"✓ 已更新 {queue_path.relative_to(project_path)}")

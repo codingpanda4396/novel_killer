@@ -18,6 +18,7 @@ from .paths import project_dir, rel
 from .planner import plan_next
 from .prepare import prepare_project_interactive
 from .project import STANDARD_DIRS, init_project
+from .project_paths import ProjectPaths
 from .publisher import publish_check
 from .readiness import check_framework_readiness, check_project_readiness
 from .reviewer import review_chapter
@@ -26,22 +27,23 @@ from .platforms import list_platforms
 from .experiment import create_experiment, list_experiments, load_experiment, save_experiment, experiment_path, import_metrics, generate_experiment_report, update_experiment_decision, concept_from_radar
 
 
-REQUIRED_PROJECT_DIRS = STANDARD_DIRS + ["corpus/volume_01", "publish/ready"]
+REQUIRED_PROJECT_DIRS = STANDARD_DIRS + ["production/corpus/volume_01", "production/publish/ready"]
 
 
 def cmd_check(args: argparse.Namespace) -> int:
     failed = 0
     project_path = project_dir(args.project)
+    paths = ProjectPaths(project_path)
     cfg = load_project(args.project)
     for item in REQUIRED_PROJECT_DIRS:
         path = project_path / item
         print(("OK  " if path.is_dir() else "MISS ") + rel(path))
         failed |= 0 if path.is_dir() else 1
-    for file_name in ["project.json", "bible/00_story_bible.md"]:
-        path = project_path / file_name
+    for file_name in [paths.bible_file("00_story_bible.md")]:
+        path = file_name
         print(("OK  " if path.is_file() and path.stat().st_size else "MISS ") + rel(path))
         failed |= 0 if path.is_file() and path.stat().st_size else 1
-    chapters = list_chapters(project_path)
+    chapters = list_chapters(paths.corpus)
     print(f"Corpus chapters: {len(chapters)}")
     if cfg.get("planning", {}).get("require_corpus") and len(chapters) == 0:
         failed = 1
@@ -51,10 +53,11 @@ def cmd_check(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_project(args.project)
     project_path = project_dir(args.project)
-    chapters = list_chapters(project_path)
-    latest_generation = sorted((project_path / "generation").glob("chapter_*"))
-    latest_reviews = sorted((project_path / "reviews").glob("chapter_*_review.json"))
-    queue = list((project_path / "reviews" / "revision_queue").glob("chapter_*.md"))
+    paths = ProjectPaths(project_path)
+    chapters = list_chapters(paths.corpus)
+    latest_generation = sorted(paths.generation.glob("chapter_*"))
+    latest_reviews = sorted(paths.reviews.glob("chapter_*_review.json"))
+    queue = list(paths.revision_queue().glob("chapter_*.md"))
     print(f"Project: {cfg['name']} ({args.project})")
     print(f"Genre: {cfg.get('genre', 'unknown')}")
     print(f"Corpus: {len(chapters)} chapters")
@@ -506,6 +509,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_exp_concept.add_argument("experiment_id", help="实验ID")
     p_exp_concept.add_argument("--project", default=None, help="项目ID")
     p_exp_concept.set_defaults(func=cmd_experiment_concept_from_radar)
+
+    # 注册 desire 子命令
+    from .desire.cli import register_desire_commands
+    register_desire_commands(sub)
 
     # 注册 pipeline 子命令
     from .pipeline.cli import register_pipeline_commands

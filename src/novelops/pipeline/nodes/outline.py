@@ -6,6 +6,7 @@ from typing import Any
 
 from ...config import write_json
 from ...llm import LLMClient
+from ...project_paths import ProjectPaths
 from ..state import PipelineState
 
 
@@ -20,6 +21,7 @@ def outline_node(state: PipelineState) -> dict[str, Any]:
     concept = state.get("concept", {})
     market_data = state.get("market_data", {})
     project_path = state["project_path"]
+    paths = ProjectPaths(project_path)
     total_chapters = state.get("total_chapters", 30)
 
     if not concept:
@@ -67,7 +69,7 @@ def outline_node(state: PipelineState) -> dict[str, Any]:
         )
 
         # 写入大纲文件
-        outlines_path = project_path / "outlines"
+        outlines_path = paths.outlines
         outlines_path.mkdir(parents=True, exist_ok=True)
 
         # 写入 full_outline.md

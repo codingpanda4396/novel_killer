@@ -8,6 +8,7 @@ from .config import load_project_path, write_json
 from .continuity import update_continuity_after_chapter
 from .llm import LLMClient, load_model_config
 from .planner import plan_next
+from .project_paths import ProjectPaths
 from .reviewer import review_text
 from .schemas import DraftArtifact, to_dict
 
@@ -27,6 +28,7 @@ def _prompt_context(plan: Any, intent: Any, chain: Any) -> str:
 def _project_summary(project_path: Path, limit: int = 3000) -> str:
     """读取项目配置指定的上下文文件，构建项目摘要"""
     parts: list[str] = []
+    paths = ProjectPaths(project_path)
     
     # 尝试读取项目配置
     try:
@@ -34,24 +36,34 @@ def _project_summary(project_path: Path, limit: int = 3000) -> str:
         context_sources = project_config.get("planning", {}).get("context_sources", [])
     except Exception:
         # 如果读取配置失败，使用默认列表
-        context_sources = ["bible/00_story_bible.md", "state/timeline.md", "state/current_context.md"]
+        context_sources = ["outlines/chapter_queue.md", "bible/00_story_bible.md", "state"]
     
     # 如果配置为空，使用默认列表
     if not context_sources:
-        context_sources = ["bible/00_story_bible.md", "state/timeline.md", "state/current_context.md"]
+        context_sources = ["outlines/chapter_queue.md", "bible/00_story_bible.md", "state"]
     
     for source in context_sources:
         if source == "state":
             # 如果是 state 目录，读取所有 state 文件
-            state_dir = project_path / "state"
+            state_dir = paths.state
             if state_dir.is_dir():
                 for state_file in sorted(state_dir.glob("*.md")):
                     text = state_file.read_text(encoding="utf-8", errors="ignore").strip()
                     if text and len(text) > 50:  # 忽略空文件或占位文件
                         parts.append(f"## state/{state_file.name}\n{text[:limit]}")
         else:
-            # 读取单个文件
-            path = project_path / source
+            # 读取单个文件，使用 ProjectPaths 解析
+            if source.startswith("bible/"):
+                filename = source.split("/", 1)[1]
+                path = paths.bible_file(filename)
+            elif source.startswith("outlines/"):
+                filename = source.split("/", 1)[1]
+                path = paths.outlines_file(filename)
+            elif source.startswith("state/"):
+                filename = source.split("/", 1)[1]
+                path = paths.state_file(filename)
+            else:
+                path = project_path / source
             if path.is_file():
                 text = path.read_text(encoding="utf-8", errors="ignore").strip()
                 if text and len(text) > 50:  # 忽略空文件或占位文件
@@ -82,7 +94,8 @@ def _max_revision_attempts() -> int:
 
 def _generate_live(project_path: Path, chapter: int, threshold: float, llm_client: LLMClient) -> DraftArtifact:
     plan, intent, chain = plan_next(project_path, chapter)
-    target = project_path / "generation" / f"chapter_{chapter:03d}"
+    paths = ProjectPaths(project_path)
+    target = paths.chapter_dir(chapter)
     context = _prompt_context(plan, intent, chain)
 
     # 尝试使用记忆层召回
@@ -172,7 +185,7 @@ def _generate_live(project_path: Path, chapter: int, threshold: float, llm_clien
         result = second
 
     if not result.passed:
-        queue = project_path / "reviews" / "revision_queue" / f"chapter_{chapter:03d}.md"
+        queue = paths.revision_queue() / f"chapter_{chapter:03d}.md"
         queue.parent.mkdir(parents=True, exist_ok=True)
         queue.write_text(
             f"# Chapter {chapter:03d}\n\nGenerated candidate failed gate: {result.score}/{threshold}\n\n"

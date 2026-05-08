@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .llm import LLMClient
+from .project_paths import ProjectPaths
 
 
 def update_continuity_after_chapter(
@@ -28,7 +29,8 @@ def update_continuity_after_chapter(
         "active_threads_updated": False,
     }
     
-    state_dir = project_path / "state"
+    paths = ProjectPaths(project_path)
+    state_dir = paths.state
     state_dir.mkdir(parents=True, exist_ok=True)
     
     # 1. 生成章节摘要

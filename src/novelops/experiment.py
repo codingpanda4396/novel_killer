@@ -9,6 +9,7 @@ from typing import Any
 
 from .paths import project_dir
 from .platforms import get_platform, get_platform_review_focus, get_platform_risk_focus
+from .project_paths import ProjectPaths
 
 
 _EXPERIMENT_TEMPLATE_FILES = [
@@ -49,7 +50,7 @@ _INT_FIELDS = {
 
 
 def _experiments_dir(project_id: str) -> Path:
-    return project_dir(project_id) / "experiments"
+    return ProjectPaths(project_dir(project_id)).experiments
 
 
 def _experiment_dir(project_id: str, experiment_id: str) -> Path:
@@ -184,6 +185,15 @@ def import_metrics(
     shutil.copy2(csv_path, dest_csv)
 
     _write_metrics_to_db(project_id, experiment_id, platform_id, rows)
+
+    # Post-step: update demand analysis with real feedback
+    try:
+        from .desire.feedback import update_demand_from_feedback
+        project_path = project_dir(project_id)
+        update_demand_from_feedback(project_path, experiment_id)
+    except Exception:
+        # Feedback update failure should not break import
+        pass
 
     return {"success": True, "imported": len(rows), "csv_path": str(dest_csv)}
 

@@ -6,6 +6,7 @@ from typing import Any
 
 from ...config import load_project_path
 from ...llm import LLMClient
+from ...project_paths import ProjectPaths
 from ...schemas import to_dict
 from ..state import PipelineState
 
@@ -19,6 +20,7 @@ def draft_node(state: PipelineState) -> dict[str, Any]:
     输出: draft
     """
     project_path = state["project_path"]
+    paths = ProjectPaths(project_path)
     current_chapter = state.get("current_chapter", 1)
     chapter_intent = state.get("chapter_intent", {})
     scene_chain = state.get("scene_chain", {})
@@ -86,7 +88,7 @@ def draft_node(state: PipelineState) -> dict[str, Any]:
         )
 
         # 写入文件
-        target = project_path / "generation" / f"chapter_{current_chapter:03d}"
+        target = paths.chapter_dir(current_chapter)
         target.mkdir(parents=True, exist_ok=True)
         (target / "04_draft_v1.md").write_text(draft.strip() + "\n", encoding="utf-8")
 
@@ -99,6 +101,7 @@ def draft_node(state: PipelineState) -> dict[str, Any]:
 def _project_summary(project_path: Path, limit: int = 3000) -> str:
     """读取项目配置指定的上下文文件，构建项目摘要"""
     parts: list[str] = []
+    paths = ProjectPaths(project_path)
 
     try:
         project_config = load_project_path(project_path)
@@ -111,7 +114,7 @@ def _project_summary(project_path: Path, limit: int = 3000) -> str:
 
     for source in context_sources:
         if source == "state":
-            state_dir = project_path / "state"
+            state_dir = paths.state
             if state_dir.is_dir():
                 for state_file in sorted(state_dir.glob("*.md")):
                     text = state_file.read_text(encoding="utf-8", errors="ignore").strip()

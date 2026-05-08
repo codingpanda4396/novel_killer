@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .project_paths import ProjectPaths
+
 
 @dataclass
 class ReadinessItem:
@@ -49,10 +51,11 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     - 状态文件是否初始化
     - 审稿 rubric 是否配置
     """
+    paths = ProjectPaths(project_path)
     items: list[ReadinessItem] = []
     
     # 1. 检查项目总纲
-    status = _check_file_content(project_path / "bible" / "00_story_bible.md", 200)
+    status = _check_file_content(paths.bible_file("00_story_bible.md"), 200)
     items.append(ReadinessItem(
         name="项目总纲 (bible/00_story_bible.md)",
         status=status,
@@ -61,7 +64,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 2. 检查角色 bible
-    status = _check_file_content(project_path / "bible" / "01_characters.md", 150)
+    status = _check_file_content(paths.bible_file("01_characters.md"), 150)
     items.append(ReadinessItem(
         name="角色 Bible (bible/01_characters.md)",
         status=status,
@@ -70,7 +73,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 3. 检查力量体系/设定规则
-    status = _check_file_content(project_path / "bible" / "02_power_system.md", 100)
+    status = _check_file_content(paths.bible_file("02_power_system.md"), 100)
     items.append(ReadinessItem(
         name="力量体系 (bible/02_power_system.md)",
         status=status,
@@ -79,7 +82,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 4. 检查风格指南
-    status = _check_file_content(project_path / "bible" / "03_style_guide.md", 100)
+    status = _check_file_content(paths.bible_file("03_style_guide.md"), 100)
     items.append(ReadinessItem(
         name="风格指南 (bible/03_style_guide.md)",
         status=status,
@@ -88,7 +91,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 5. 检查禁写规则
-    status = _check_file_content(project_path / "bible" / "04_forbidden_rules.md", 50)
+    status = _check_file_content(paths.bible_file("04_forbidden_rules.md"), 50)
     items.append(ReadinessItem(
         name="禁写规则 (bible/04_forbidden_rules.md)",
         status=status,
@@ -97,7 +100,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 6. 检查审稿检查清单
-    status = _check_file_content(project_path / "bible" / "11_review_checklist.md", 100)
+    status = _check_file_content(paths.bible_file("11_review_checklist.md"), 100)
     items.append(ReadinessItem(
         name="审稿检查清单 (bible/11_review_checklist.md)",
         status=status,
@@ -106,7 +109,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 7. 检查章节队列
-    queue_path = project_path / "outlines" / "chapter_queue.md"
+    queue_path = paths.outlines_file("chapter_queue.md")
     status = _check_file_content(queue_path, 150)
     items.append(ReadinessItem(
         name="章节队列 (outlines/chapter_queue.md)",
@@ -116,7 +119,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 8. 检查卷纲
-    status = _check_file_content(project_path / "outlines" / "volume_outline.md", 100)
+    status = _check_file_content(paths.outlines_file("volume_outline.md"), 100)
     items.append(ReadinessItem(
         name="卷纲 (outlines/volume_outline.md)",
         status=status,
@@ -125,7 +128,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ))
     
     # 9. 检查前 30 章卡
-    status = _check_file_content(project_path / "outlines" / "first_30_chapters.md", 200)
+    status = _check_file_content(paths.outlines_file("first_30_chapters.md"), 200)
     items.append(ReadinessItem(
         name="前 30 章章节卡 (outlines/first_30_chapters.md)",
         status=status,
@@ -162,7 +165,7 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
     ]
     
     for filename, display_name in state_files:
-        path = project_path / "state" / filename
+        path = paths.state_file(filename)
         if not path.is_file():
             items.append(ReadinessItem(
                 name=f"{display_name} (state/{filename})",
@@ -193,9 +196,10 @@ def check_project_readiness(project_path: Path, project_config: dict[str, Any]) 
 
 def check_framework_readiness(project_path: Path, project_config: dict[str, Any]) -> ReadinessReport:
     """检查框架导入项目是否满足番茄冷启动商业测试要求。"""
+    paths = ProjectPaths(project_path)
     items: list[ReadinessItem] = []
 
-    story = _read(project_path / "bible" / "00_story_bible.md")
+    story = _read(paths.bible_file("00_story_bible.md"))
     _add_contains(
         items,
         "冷启动项目总纲",
@@ -205,7 +209,7 @@ def check_framework_readiness(project_path: Path, project_config: dict[str, Any]
         critical=True,
     )
 
-    power = _read(project_path / "bible" / "02_power_system.md")
+    power = _read(paths.bible_file("02_power_system.md"))
     _add_contains(
         items,
         "香火/金手指规则",
@@ -215,7 +219,7 @@ def check_framework_readiness(project_path: Path, project_config: dict[str, Any]
         critical=True,
     )
 
-    checklist = _read(project_path / "bible" / "11_review_checklist.md")
+    checklist = _read(paths.bible_file("11_review_checklist.md"))
     _add_contains(
         items,
         "专项审稿清单",
@@ -225,7 +229,7 @@ def check_framework_readiness(project_path: Path, project_config: dict[str, Any]
         critical=True,
     )
 
-    queue = _read(project_path / "outlines" / "chapter_queue.md")
+    queue = _read(paths.outlines_file("chapter_queue.md"))
     rows = _chapter_queue_rows(queue)
     if len(rows) >= 40:
         items.append(ReadinessItem("前 40 章队列", "ok", f"已规划 {len(rows)} 章", True))
@@ -268,7 +272,7 @@ def check_framework_readiness(project_path: Path, project_config: dict[str, Any]
         critical=True,
     )
 
-    all40 = "\n".join(row for _, row in rows[:40]) + "\n" + story + "\n" + _read(project_path / "outlines" / "volume_outline.md")
+    all40 = "\n".join(row for _, row in rows[:40]) + "\n" + story + "\n" + _read(paths.outlines_file("volume_outline.md"))
     _add_contains(
         items,
         "四段阶段目标覆盖",
