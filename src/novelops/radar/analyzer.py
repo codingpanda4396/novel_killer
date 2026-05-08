@@ -128,7 +128,7 @@ class RuleBasedRadarAnalyzer:
         return risks
     
     def _extract_protagonist_template(self, genre: str) -> str:
-        templates = {
+        prompt_variants = {
             "都市重生": "重生者",
             "赘婿逆袭": "隐忍赘婿",
             "末世囤货": "末世生存者",
@@ -138,7 +138,7 @@ class RuleBasedRadarAnalyzer:
             "年代文": "穿越者",
             "穿书反派": "穿书反派",
         }
-        for key, template in templates.items():
+        for key, template in prompt_variants.items():
             if key in genre:
                 return template
         return "普通人"

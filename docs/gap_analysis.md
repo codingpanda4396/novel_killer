@@ -5,7 +5,7 @@
 ### 1.1 已实现的核心功能
 
 ✅ **基础架构**
-- Python 单体系统 + FastAPI (web.py)
+- Python CLI 单体系统
 - SQLite/JSON 混合存储（项目配置用 JSON，部分数据结构化）
 - Markdown 文件系统（章节、大纲、设定）
 - LLM 集成（DeepSeek + Claude via RightCode）
@@ -19,7 +19,6 @@
 - `indexer.py` - 索引构建
 - `orchestrator.py` - 工作流编排
 - `cli.py` - 命令行入口
-- `web.py` - Web 界面
 
 ✅ **已有目录结构**
 ```
@@ -31,13 +30,12 @@ src/novelops/
 ├── core/            # 核心逻辑
 ├── services/        # 服务层
 ├── utils/           # 工具函数
-└── templates/       # Web 模板
+└── memory/          # 向量库与检索
 ```
 
 ### 1.2 当前技术栈
 
 - **语言**: Python 3.8+
-- **Web 框架**: FastAPI (web.py)
 - **存储**: JSON 文件 + Markdown
 - **LLM**: OpenAI SDK (兼容 DeepSeek + RightCode)
 - **依赖管理**: pip + requirements.txt
@@ -51,7 +49,7 @@ src/novelops/
 ### 2.1 核心技术栈
 
 ```
-Python + FastAPI + SQLite/PostgreSQL + Playwright + LLM API + Markdown + ChromaDB + LangGraph
+Python + SQLite/PostgreSQL + Playwright + LLM API + Markdown + ChromaDB + LangGraph
 ```
 
 ### 2.2 推荐模块结构
@@ -68,7 +66,6 @@ novelops/
   reviewers/       # 商业审稿 - ✅ 已有（reviewer.py）
   feedback/        # 数据反馈 - ❌ 缺失
   cli/             # 命令行入口 - ✅ 已有
-  api/             # FastAPI - ✅ 已有（web.py）
 ```
 
 ---
@@ -210,7 +207,7 @@ novelops chapter write 001
 
 1. **章节生成** (`generator.py`) - 功能完整，可考虑模块化
 2. **审稿系统** (`reviewer.py`) - 功能完整，可增加更多维度
-3. **Web 界面** (`web.py`) - 基础功能完整，可优化 UI
+3. **CLI 交互** (`cli.py`) - 功能完整，可继续优化报告输出和批处理体验
 
 ---
 
@@ -542,4 +539,3 @@ dependencies = [
 ### 一句话建议
 
 **先做向量知识库和热点采集，这两个功能会立即提升系统的实用价值。数据库迁移和工作流重构可以边用边优化。**
-

@@ -135,7 +135,7 @@ novel0/
 │       ├── repeated_ai_patterns.md
 │       └── weak_points.md
 │
-├── config/
+├── configs/
 │   └── novelops_v2.json
 │
 └── scripts/
@@ -211,7 +211,7 @@ outlines/chapter_queue.md
 
 ## 5. 配置文件设计
 
-新增：`config/novelops_v2.json`
+新增：`configs/novelops_v2.json`
 
 ```json
 {
@@ -582,7 +582,7 @@ generation/draft_v1/
 
 ```python
 class LLMClient:
-    def __init__(self, config_path: str = "config/workflow.local.json"):
+    def __init__(self, config_path: str = "configs/workflow.local.json"):
         pass
 
     def complete(self, prompt: str, system: str | None = None) -> str:
@@ -619,7 +619,7 @@ review-chapter:
 `review_gate.py` 工作流程：
 
 ```text
-1. 读取 config/novelops_v2.json
+1. 读取 configs/novelops_v2.json
 2. 找到章节正文
 3. 读取 bible/、progress/、reviews/rubrics/
 4. 构造审稿 prompt
@@ -1356,7 +1356,7 @@ make scout-topics
    - reviews/aggregate
    - scripts/lib
 
-2. 新增 config/novelops_v2.json。
+2. 新增 configs/novelops_v2.json。
 
 3. 新增 intelligence/sources.yaml。
 
@@ -1433,7 +1433,7 @@ python scripts/review_gate.py --chapter 1 --input path/to/chapter.md
 python scripts/review_gate.py --chapter 1 --no-llm
 
 功能要求：
-1. 读取 config/novelops_v2.json；
+1. 读取 configs/novelops_v2.json；
 2. 自动找到章节文件；
 3. 读取 bible、progress、reviews/rubrics；
 4. 构造商业网文审稿 prompt；
@@ -1777,7 +1777,7 @@ platform_risk_score <= 4
 建议每完成一个稳定模块就提交一次。
 
 ```bash
-git add config/novelops_v2.json intelligence/sources.yaml reviews/rubrics
+git add configs/novelops_v2.json intelligence/sources.yaml reviews/rubrics
  git commit -m "feat: add NovelOps v2 config and review rubrics"
 
  git add scripts/lib

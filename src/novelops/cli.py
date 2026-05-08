@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-from .config import ConfigError, default_project_id, load_app_config, load_project, threshold
+from .config import default_project_id, load_project, threshold
 from .assistant import ask
 from .corpus import list_chapters
 from .db.engine import database_url
@@ -17,7 +17,7 @@ from .indexer import connect
 from .paths import project_dir, rel
 from .planner import plan_next
 from .prepare import prepare_project_interactive
-from .project import STANDARD_DIRS, init_project
+from .project import init_project
 from .project_paths import ProjectPaths
 from .publisher import publish_check
 from .readiness import check_framework_readiness, check_project_readiness
@@ -27,23 +27,34 @@ from .platforms import list_platforms
 from .experiment import create_experiment, list_experiments, load_experiment, save_experiment, experiment_path, import_metrics, generate_experiment_report, update_experiment_decision, concept_from_radar
 
 
-REQUIRED_PROJECT_DIRS = STANDARD_DIRS + ["production/corpus/volume_01", "production/publish/ready"]
-
-
 def cmd_check(args: argparse.Namespace) -> int:
     failed = 0
     project_path = project_dir(args.project)
     paths = ProjectPaths(project_path)
     cfg = load_project(args.project)
-    for item in REQUIRED_PROJECT_DIRS:
-        path = project_path / item
+    required_dirs = [
+        paths.market_raw_notes,
+        paths.market_processed,
+        paths.market_reports,
+        paths.bible,
+        paths.outlines,
+        paths.state,
+        paths.generation,
+        paths.reviews,
+        paths.corpus,
+        paths.publish,
+        paths.experiments,
+        paths.corpus_volume(1),
+        paths.publish / "ready",
+    ]
+    for path in required_dirs:
         print(("OK  " if path.is_dir() else "MISS ") + rel(path))
         failed |= 0 if path.is_dir() else 1
     for file_name in [paths.bible_file("00_story_bible.md")]:
         path = file_name
         print(("OK  " if path.is_file() and path.stat().st_size else "MISS ") + rel(path))
         failed |= 0 if path.is_file() and path.stat().st_size else 1
-    chapters = list_chapters(paths.corpus)
+    chapters = list_chapters(project_path)
     print(f"Corpus chapters: {len(chapters)}")
     if cfg.get("planning", {}).get("require_corpus") and len(chapters) == 0:
         failed = 1
@@ -54,7 +65,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_project(args.project)
     project_path = project_dir(args.project)
     paths = ProjectPaths(project_path)
-    chapters = list_chapters(paths.corpus)
+    chapters = list_chapters(project_path)
     latest_generation = sorted(paths.generation.glob("chapter_*"))
     latest_reviews = sorted(paths.reviews.glob("chapter_*_review.json"))
     queue = list(paths.revision_queue().glob("chapter_*.md"))
@@ -115,19 +126,6 @@ def cmd_db_status(args: argparse.Namespace) -> int:
         for table in tables:
             count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             print(f"{table}: {count}")
-    return 0
-
-
-def cmd_serve(args: argparse.Namespace) -> int:
-    from .web import ensure_index
-
-    ensure_index()
-    try:
-        import uvicorn
-    except ImportError as exc:
-        raise ConfigError("Missing dependency: uvicorn. Install requirements.txt first.") from exc
-    print(f"Serving NovelOps dashboard at http://{args.host}:{args.port}")
-    uvicorn.run("novelops.web:create_app", factory=True, host=args.host, port=args.port)
     return 0
 
 
@@ -412,7 +410,6 @@ def cmd_experiment_concept_from_radar(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="novelops", description="NovelOps v2 CLI")
-    app_cfg = load_app_config()
     parser.add_argument("--project", default=default_project_id())
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("init-project")
@@ -425,10 +422,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--project", dest="index_project")
     p.set_defaults(func=cmd_index)
     sub.add_parser("db-status", help="显示数据库 URL、核心表数量和迁移状态").set_defaults(func=cmd_db_status)
-    p = sub.add_parser("serve")
-    p.add_argument("--host", default=str(app_cfg.get("web", {}).get("host", "127.0.0.1")))
-    p.add_argument("--port", type=int, default=int(app_cfg.get("web", {}).get("port", 8787)))
-    p.set_defaults(func=cmd_serve)
     sub.add_parser("check").set_defaults(func=cmd_check)
     p = sub.add_parser("status")
     p.add_argument("--readiness", action="store_true", help="显示开书准备度检查")

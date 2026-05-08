@@ -329,26 +329,6 @@ class NovelOpsTests(unittest.TestCase):
             self.assertEqual(count, 1)
             self.assertGreaterEqual(chapters, 50)
 
-    def test_web_routes_return_200(self) -> None:
-        try:
-            from fastapi.testclient import TestClient
-            from novelops.session import SESSION_COOKIE_NAME, get_serializer
-            from novelops.web import create_app
-        except Exception as exc:  # pragma: no cover
-            self.skipTest(f"FastAPI test dependencies unavailable: {exc}")
-        with tempfile.TemporaryDirectory() as tmp:
-            db_path = Path(tmp) / "novelops.sqlite3"
-            with patch.dict(os.environ, {"NOVELOPS_DB": str(db_path)}, clear=False):
-                rebuild_index("life_balance")
-                from novelops.user import add_user_project
-                add_user_project("user1", "life_balance", is_default=True, db_path=db_path)
-                client = TestClient(create_app())
-                client.cookies.set(SESSION_COOKIE_NAME, get_serializer().dumps({"user_id": "user1"}))
-                self.assertEqual(client.get("/").status_code, 200)
-                self.assertEqual(client.get("/projects/life_balance").status_code, 200)
-                self.assertEqual(client.get("/projects/life_balance/chapters/1").status_code, 200)
-                self.assertEqual(client.get("/revision-queue").status_code, 200)
-
     def test_assistant_llm_status_and_explain_review(self) -> None:
         from novelops.assistant import AssistantOrchestrator
 
@@ -410,45 +390,6 @@ class NovelOpsTests(unittest.TestCase):
         self.assertEqual(response.intent.name, "unknown")
         self.assertTrue(response.errors)
         self.assertIn("需要可用的 LLM", response.message)
-
-    def test_web_api_ask_and_forms(self) -> None:
-        try:
-            from fastapi.testclient import TestClient
-            from novelops.session import SESSION_COOKIE_NAME, get_serializer
-            from novelops.web import create_app
-        except Exception as exc:  # pragma: no cover
-            self.skipTest(f"FastAPI test dependencies unavailable: {exc}")
-        with tempfile.TemporaryDirectory() as tmp:
-            db_path = Path(tmp) / "novelops.sqlite3"
-            with patch.dict(os.environ, {"NOVELOPS_DB": str(db_path)}, clear=False):
-                rebuild_index("life_balance")
-                from novelops.user import add_user_project
-                add_user_project("user1", "life_balance", is_default=True, db_path=db_path)
-                client = TestClient(create_app())
-                client.cookies.set(SESSION_COOKIE_NAME, get_serializer().dumps({"user_id": "user1"}))
-                def fake_ask(message, default_project=None, execute=False):
-                    from novelops.assistant import AssistantIntent, AssistantResponse
-
-                    if "生成" in message:
-                        return AssistantResponse(
-                            message="需要确认",
-                            intent=AssistantIntent(name="generate", project=default_project, chapter=51),
-                            requires_confirmation=True,
-                        )
-                    return AssistantResponse(
-                        message="状态正常",
-                        intent=AssistantIntent(name="status", project=default_project),
-                        result={"project": default_project},
-                    )
-
-                with patch("novelops.web.ask", fake_ask):
-                    response = client.post("/api/ask", json={"message": "查看状态", "project": "life_balance"})
-                    self.assertEqual(response.status_code, 200)
-                    self.assertEqual(response.json()["intent"]["name"], "status")
-                    preview = client.post("/api/ask", json={"message": "给当前项目生成下一章", "project": "life_balance"})
-                    self.assertTrue(preview.json()["requires_confirmation"])
-                    self.assertIn("data-ask-form", client.get("/").text)
-                    self.assertIn("data-ask-form", client.get("/projects/life_balance").text)
 
     def test_init_project_creates_complete_structure(self) -> None:
         """测试 init_project 创建完整的新书骨架"""
@@ -567,28 +508,6 @@ class NovelOpsTests(unittest.TestCase):
                 config = json.loads((project / "project.json").read_text(encoding="utf-8"))
                 report = check_framework_readiness(project, config)
                 self.assertFalse(report.ready)
-
-    def test_web_import_framework_preview_and_execute(self) -> None:
-        try:
-            from fastapi.testclient import TestClient
-            from novelops.session import SESSION_COOKIE_NAME, get_serializer
-            from novelops.web import create_app
-        except Exception as exc:  # pragma: no cover
-            self.skipTest(f"FastAPI test dependencies unavailable: {exc}")
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {"NOVELOPS_DB": str(Path(tmp) / "novelops.sqlite3")}, clear=False), \
-                 patch("novelops.paths.PROJECTS_DIR", Path(tmp)), \
-                 patch("novelops.framework_importer.LLMClient", lambda: FakeFrameworkClient()):
-                client = TestClient(create_app())
-                client.cookies.set(SESSION_COOKIE_NAME, get_serializer().dumps({"user_id": "user1"}))
-                payload = {"project_id": "xianghuo_demo", "framework_markdown": "# 框架", "execute": False}
-                preview = client.post("/api/import-framework", json=payload)
-                self.assertEqual(preview.status_code, 200)
-                self.assertFalse((Path(tmp) / "xianghuo_demo").exists())
-                execute = client.post("/api/import-framework", json={**payload, "execute": True})
-                self.assertEqual(execute.status_code, 200)
-                self.assertTrue((Path(tmp) / "xianghuo_demo" / "project.json").is_file())
-                self.assertEqual(execute.json()["status"], "created")
 
     def test_orchestrator_reports_ready_project_and_next_action(self) -> None:
         from novelops.orchestrator import ProjectOrchestrator, WorkflowState

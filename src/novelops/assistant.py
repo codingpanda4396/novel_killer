@@ -28,7 +28,6 @@ INTENTS = {
     "index",
     "explain_review",
     "show_revision_queue",
-    "serve_help",
     "unknown",
     "radar_collect",
     "radar_analyze",
@@ -42,7 +41,7 @@ INTENTS = {
     "readiness_check",
     "import_framework",
 }
-AUTO_EXECUTE = {"status", "check", "plan_next", "review_chapter", "index", "explain_review", "show_revision_queue", "serve_help", "pipeline_status"}
+AUTO_EXECUTE = {"status", "check", "plan_next", "review_chapter", "index", "explain_review", "show_revision_queue", "pipeline_status"}
 CONFIRM_EXECUTE = {"init_project", "generate", "radar_collect", "radar_analyze", "radar_analyze_text", "pipeline_run", "prepare_project", "import_framework"}
 FORBIDDEN_PATTERNS = [
     ("delete", r"删除|移除|清空|rm\s+-rf"),
@@ -196,8 +195,6 @@ class AssistantOrchestrator:
             return explain_review(_require_project(intent), _require_chapter(intent))
         if intent.name == "show_revision_queue":
             return revision_queue(intent.project)
-        if intent.name == "serve_help":
-            return {"command": "python3 -m novelops.cli serve", "url": "http://127.0.0.1:8787"}
         if intent.name == "radar_collect":
             return self._execute_radar_collect(intent)
         if intent.name == "radar_analyze":
@@ -538,8 +535,6 @@ def _equivalent_command(intent: AssistantIntent) -> str:
         return f"{prefix} ask \"解释第{intent.chapter or '<chapter>'}章审稿为什么没过\""
     if intent.name == "show_revision_queue":
         return f"{prefix} ask \"显示修订队列\""
-    if intent.name == "serve_help":
-        return "python3 -m novelops.cli serve"
     if intent.name == "radar_collect":
         return "python3 -m novelops.radar collect-web"
     if intent.name == "radar_analyze":
@@ -584,8 +579,6 @@ def _success_message(intent: AssistantIntent, result: dict[str, Any]) -> str:
         return str(result["summary"])
     if intent.name == "show_revision_queue":
         return f"当前 open 修订队列 {result['count']} 项。"
-    if intent.name == "serve_help":
-        return f"启动看板：{result['command']}，默认地址 {result['url']}"
     if intent.name == "radar_collect":
         return f"市场数据采集{'成功' if result.get('status') == 'success' else '失败'}。来源：{result.get('source', '未知')}"
     if intent.name == "radar_analyze":

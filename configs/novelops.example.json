@@ -1,20 +1,5 @@
 {
   "default_project": "life_balance",
   "db_path": "runtime/novelops.sqlite3",
-  "web": {
-    "host": "127.0.0.1",
-    "port": 8787,
-    "session_secret": "CHANGE_THIS_IN_PRODUCTION"
-  },
-  "invites": {
-    "TEST-USER-001": {
-      "user_id": "user001",
-      "username": "内测用户001"
-    },
-    "TEST-USER-002": {
-      "user_id": "user002",
-      "username": "内测用户002"
-    }
-  },
   "require_manual_publish_confirmation": true
 }

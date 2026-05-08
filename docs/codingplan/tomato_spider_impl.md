@@ -592,7 +592,7 @@ Report generated: runtime/radar/reports/topic_report_20260505_1230.md
 3. 支持多平台数据源（七猫、起点）
 
 ### 中期（1 个月）
-1. Web Dashboard 可视化
+1. CLI 报告可视化
 2. 选题趋势分析（时间序列）
 3. 与 NovelOps 生成流程打通（自动创建项目）
 

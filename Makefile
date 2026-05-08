@@ -1,4 +1,4 @@
-.PHONY: help init-project index serve check status review-chapter review-range publish-check plan-next generate scout test
+.PHONY: help init-project index check status review-chapter review-range publish-check plan-next generate scout test
 
 PROJECT ?= life_balance
 PYTHON = python3.10
@@ -15,9 +15,6 @@ init-project:
 
 index:
 	@$(PYTHON) -m novelops.cli index --project "$(PROJECT)"
-
-serve:
-	@$(PYTHON) -m novelops.cli serve
 
 check:
 	@$(PYTHON) -m novelops.cli --project "$(PROJECT)" check
