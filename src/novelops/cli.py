@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-from .config import default_project_id, load_project, threshold
+from .config import ConfigError, default_project_id, load_project, threshold
 from .assistant import ask
 from .corpus import list_chapters
 from .db.engine import database_url
@@ -25,6 +25,10 @@ from .reviewer import review_chapter
 from .scout import scout
 from .platforms import list_platforms
 from .experiment import create_experiment, list_experiments, load_experiment, save_experiment, experiment_path, import_metrics, generate_experiment_report, update_experiment_decision, concept_from_radar
+
+
+def _count_all_corpus_chapters(paths: ProjectPaths) -> int:
+    return len(list(paths.corpus.glob("volume_*/chapter_*.md")))
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -54,9 +58,9 @@ def cmd_check(args: argparse.Namespace) -> int:
         path = file_name
         print(("OK  " if path.is_file() and path.stat().st_size else "MISS ") + rel(path))
         failed |= 0 if path.is_file() and path.stat().st_size else 1
-    chapters = list_chapters(project_path)
-    print(f"Corpus chapters: {len(chapters)}")
-    if cfg.get("planning", {}).get("require_corpus") and len(chapters) == 0:
+    chapter_count = _count_all_corpus_chapters(paths)
+    print(f"Corpus chapters: {chapter_count}")
+    if cfg.get("planning", {}).get("require_corpus") and chapter_count == 0:
         failed = 1
     return failed
 
@@ -65,13 +69,13 @@ def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_project(args.project)
     project_path = project_dir(args.project)
     paths = ProjectPaths(project_path)
-    chapters = list_chapters(project_path)
+    chapter_count = _count_all_corpus_chapters(paths)
     latest_generation = sorted(paths.generation.glob("chapter_*"))
     latest_reviews = sorted(paths.reviews.glob("chapter_*_review.json"))
     queue = list(paths.revision_queue().glob("chapter_*.md"))
     print(f"Project: {cfg['name']} ({args.project})")
     print(f"Genre: {cfg.get('genre', 'unknown')}")
-    print(f"Corpus: {len(chapters)} chapters")
+    print(f"Corpus: {chapter_count} chapters")
     print(f"Current volume: {cfg.get('current_volume', {}).get('number')}")
     print(f"Next chapter: {cfg.get('current_volume', {}).get('next_chapter')}")
     print(f"Review threshold: {threshold(cfg)}")
@@ -510,6 +514,22 @@ def build_parser() -> argparse.ArgumentParser:
     # 注册 pipeline 子命令
     from .pipeline.cli import register_pipeline_commands
     register_pipeline_commands(sub)
+
+    # 注册 prompt 子命令
+    from .prompt.cli import register_prompt_commands
+    register_prompt_commands(sub)
+
+    # 注册 snapshot 子命令
+    from .snapshot.cli import register_snapshot_commands
+    register_snapshot_commands(sub)
+
+    # 注册 world 子命令
+    from .world.cli import register_world_commands
+    register_world_commands(sub)
+
+    # 注册 io 子命令
+    from .io.cli import register_io_commands
+    register_io_commands(sub)
 
     return parser
 
